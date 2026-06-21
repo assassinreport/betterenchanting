@@ -1,0 +1,63 @@
+package net.assassinreport.betterenchanting.block.entity.renderer;
+
+import net.assassinreport.betterenchanting.block.entity.NewEnchantingTableBlockEntity;
+import net.minecraft.client.render.RenderLayer;
+import net.minecraft.client.render.VertexConsumer;
+import net.minecraft.client.render.VertexConsumerProvider;
+import net.minecraft.client.render.block.entity.BlockEntityRenderer;
+import net.minecraft.client.render.block.entity.BlockEntityRendererFactory;
+import net.minecraft.client.render.entity.model.BookModel;
+import net.minecraft.client.render.entity.model.EntityModelLayers;
+import net.minecraft.client.texture.SpriteAtlasTexture;
+import net.minecraft.client.util.SpriteIdentifier;
+import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.util.Identifier;
+import net.minecraft.util.math.MathHelper;
+import net.minecraft.util.math.RotationAxis;
+import net.minecraft.util.math.Vec3d;
+
+public class NewEnchantingTableBlockEntityRenderer implements BlockEntityRenderer<NewEnchantingTableBlockEntity> {
+
+    private static final SpriteIdentifier BOOK_TEXTURE = new SpriteIdentifier(
+            SpriteAtlasTexture.BLOCK_ATLAS_TEXTURE, Identifier.ofVanilla("entity/enchanting_table_book")
+    );
+
+    private final BookModel book;
+
+
+    public NewEnchantingTableBlockEntityRenderer(BlockEntityRendererFactory.Context context) {
+        this.book = new BookModel(context.getLayerModelPart(EntityModelLayers.BOOK));
+    }
+
+    @Override
+    public void render(NewEnchantingTableBlockEntity entity, float tickDelta, MatrixStack matrices,
+                       VertexConsumerProvider vertexConsumers, int light, int overlay, Vec3d cameraPos) {
+        matrices.push();
+
+        // Center and bob the book - might keep for later
+        matrices.translate(0.5F, 0.75F, 0.5F);
+        float g = entity.bookAnimation.ticks + tickDelta;
+        matrices.translate(0.0F, 0.1F + MathHelper.sin(g * 0.1F) * 0.01F, 0.0F);
+
+        float rotationDiff = entity.bookAnimation.bookRotation - entity.bookAnimation.lastBookRotation;
+        while (rotationDiff >= Math.PI) rotationDiff -= (float)(Math.PI * 2);
+        while (rotationDiff < -Math.PI) rotationDiff += (float)(Math.PI * 2);
+
+        float rotation = entity.bookAnimation.lastBookRotation + rotationDiff * tickDelta;
+        matrices.multiply(RotationAxis.POSITIVE_Y.rotation(-rotation));
+        matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(80.0F));
+
+        float pageLerp = MathHelper.lerp(tickDelta, entity.bookAnimation.pageAngle, entity.bookAnimation.nextPageAngle);
+        float page1 = MathHelper.fractionalPart(pageLerp + 0.25F) * 1.6F - 0.3F;
+        float page2 = MathHelper.fractionalPart(pageLerp + 0.75F) * 1.6F - 0.3F;
+        float pageTurnSpeed = MathHelper.lerp(tickDelta, entity.bookAnimation.pageTurningSpeed, entity.bookAnimation.nextPageTurningSpeed);
+
+        this.book.setPageAngles(g, MathHelper.clamp(page1, 0.0F, 1.0F), MathHelper.clamp(page2, 0.0F, 1.0F), pageTurnSpeed);
+
+        VertexConsumer vertexConsumer = BOOK_TEXTURE.getVertexConsumer(vertexConsumers, RenderLayer::getEntitySolid);
+
+        this.book.render(matrices, vertexConsumer, light, overlay, 0xFFFFFFFF);
+
+        matrices.pop();
+    }
+}
