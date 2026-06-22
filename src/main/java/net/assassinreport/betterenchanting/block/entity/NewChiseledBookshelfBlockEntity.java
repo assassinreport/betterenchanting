@@ -12,6 +12,7 @@ import net.minecraft.entity.player.PlayerInventory;
 import net.minecraft.inventory.Inventories;
 import net.minecraft.inventory.Inventory;
 import net.minecraft.item.ItemStack;
+import net.minecraft.item.Items;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.registry.RegistryWrapper;
 import net.minecraft.registry.tag.ItemTags;
@@ -35,6 +36,7 @@ public class NewChiseledBookshelfBlockEntity extends BlockEntity implements Impl
             DefaultedList.ofSize(SLOT_COUNT, ItemStack.EMPTY);
 
     private int lastInteractedSlot = -1;
+    private boolean wasSpecialFull = false;
 
     private static final BooleanProperty[] MY_SLOTS = {
             NewChiseledBookshelfBlock.SLOT_0_OCCUPIED,
@@ -47,6 +49,19 @@ public class NewChiseledBookshelfBlockEntity extends BlockEntity implements Impl
 
     public NewChiseledBookshelfBlockEntity(BlockPos pos, BlockState state) {
         super(ModBlockEntities.NEW_CHISELED_BOOKSHELF_BLOCK_ENTITY, pos, state);
+    }
+
+    private boolean hasSixIdenticalEnchantedBooks() {
+        ItemStack first = inventory.getFirst();
+        if (first.isEmpty() || !first.isOf(Items.ENCHANTED_BOOK)) return false;
+
+        for (int i = 1; i < SLOT_COUNT; i++) {
+            ItemStack current = inventory.get(i);
+            if (!ItemStack.areItemsAndComponentsEqual(first, current)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     // -----------------------State update-------------------------
@@ -142,9 +157,12 @@ public class NewChiseledBookshelfBlockEntity extends BlockEntity implements Impl
             return;
         }
 
-        SoundEvent soundToPlay = SoundEvents.ITEM_BOOK_PUT;
-
-        world.playSound(null, pos, soundToPlay, SoundCategory.BLOCKS, 1.0f, 1.0f);
+        if (!hasSixIdenticalEnchantedBooks()) {
+            SoundEvent soundToPlay = stack.isOf(Items.ENCHANTED_BOOK)
+                    ? SoundEvents.BLOCK_CHISELED_BOOKSHELF_INSERT_ENCHANTED
+                    : SoundEvents.BLOCK_CHISELED_BOOKSHELF_INSERT;
+            world.playSound(null, pos, soundToPlay, SoundCategory.BLOCKS, 1.0f, 1.0f);
+        }
     }
 
     @Override
@@ -178,7 +196,16 @@ public class NewChiseledBookshelfBlockEntity extends BlockEntity implements Impl
 
         if (world == null || world.isClient) return;
 
-        // Notify nearby enchanting tables
+        boolean isSpecialFullNow = hasSixIdenticalEnchantedBooks();
+
+        if (isSpecialFullNow && !wasSpecialFull) {
+            world.playSound(null, pos, SoundEvents.BLOCK_BEACON_POWER_SELECT, SoundCategory.BLOCKS, 1.0f, 1.0f);
+        } else if (!isSpecialFullNow && wasSpecialFull) {
+            world.playSound(null, pos, SoundEvents.BLOCK_BEACON_DEACTIVATE, SoundCategory.BLOCKS, 1.0f, 1.0f);
+        }
+
+        wasSpecialFull = isSpecialFullNow;
+
         BlockPos.streamOutwards(pos, 3, 3, 3)
                 .map(world::getBlockEntity)
                 .filter(be -> be instanceof NewEnchantingTableBlockEntity)
@@ -192,6 +219,7 @@ public class NewChiseledBookshelfBlockEntity extends BlockEntity implements Impl
         super.readNbt(nbt, registryLookup);
         Inventories.readNbt(nbt, inventory, registryLookup);
         lastInteractedSlot = nbt.getInt("last_interacted_slot");
+        this.wasSpecialFull = hasSixIdenticalEnchantedBooks();
     }
 
     @Override
