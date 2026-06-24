@@ -119,17 +119,6 @@ public class NewEnchantingScreenHandler extends ScreenHandler {
         if (input.isOf(Items.BOOK) || input.isOf(Items.ENCHANTED_BOOK)) return;
         if (hasEnchantment(input, enchantment, level)) return;
 
-        int maxUnlockedLevel = 0;
-        for (var entry : this.blockEntity.getCachedEnchantments().entrySet()) {
-            if (entry.getKey().enchantment().equals(enchantment) && entry.getValue() >= 6) {
-                maxUnlockedLevel = Math.max(maxUnlockedLevel, entry.getKey().level());
-            }
-        }
-
-        if (maxUnlockedLevel == 0 || level > maxUnlockedLevel) {
-            return;
-        }
-
         input.addEnchantment(enchantment, level);
         getSlot(0).markDirty();
         sendContentUpdates();

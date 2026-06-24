@@ -199,7 +199,7 @@ public class NewEnchantingScreen extends HandledScreen<NewEnchantingScreenHandle
                 int unlockedLevel = 1;
                 Map<NewEnchantingTableBlockEntity.EnchantmentLevel, Integer> cached = handler.blockEntity.getCachedEnchantments();
                 for (var entry : cached.entrySet()) {
-                    if (entry.getKey().enchantment().equals(enchant) && entry.getValue() >= 6) {
+                    if (entry.getKey().enchantment() == enchant && entry.getValue() >= 6) {
                         unlockedLevel = Math.max(unlockedLevel, entry.getKey().level());
                     }
                 }
@@ -290,18 +290,16 @@ public class NewEnchantingScreen extends HandledScreen<NewEnchantingScreenHandle
                     handler.blockEntity,
                     weights,
                     btn -> {
-                        int maxUnlockedLevel = 0;
+                        int unlockedLevel = 1;
                         Map<NewEnchantingTableBlockEntity.EnchantmentLevel, Integer> cached = handler.blockEntity.getCachedEnchantments();
 
                         for (var entry : cached.entrySet()) {
-                            if (entry.getKey().enchantment().equals(enchantment) && entry.getValue() >= 6) {
-                                maxUnlockedLevel = Math.max(maxUnlockedLevel, entry.getKey().level());
+                            if (entry.getKey().enchantment() == enchantment && entry.getValue() >= 6) {
+                                unlockedLevel = Math.max(unlockedLevel, entry.getKey().level());
                             }
                         }
 
-                        if (maxUnlockedLevel > 0) {
-                            ClientToServerPackets.sendSelectEnchantmentPacket(enchantment, maxUnlockedLevel);
-                        }
+                        ClientToServerPackets.sendSelectEnchantmentPacket(enchantment, unlockedLevel);
                     }
             );
 
