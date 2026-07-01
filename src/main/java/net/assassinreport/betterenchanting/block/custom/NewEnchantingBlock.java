@@ -3,75 +3,93 @@ package net.assassinreport.betterenchanting.block.custom;
 import com.mojang.serialization.MapCodec;
 import net.assassinreport.betterenchanting.block.entity.ModBlockEntities;
 import net.assassinreport.betterenchanting.block.entity.NewEnchantingTableBlockEntity;
-import net.minecraft.block.*;
-import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.block.entity.BlockEntityTicker;
-import net.minecraft.block.entity.BlockEntityType;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.screen.NamedScreenHandlerFactory;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.ItemScatterer;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.shape.VoxelShape;
-import net.minecraft.world.BlockView;
-import net.minecraft.world.World;
+import net.minecraft.core.BlockPos;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.Containers;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.MenuProvider;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.BaseEntityBlock;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.EntityBlock;
+import net.minecraft.world.level.block.RenderShape;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.entity.BlockEntityTicker;
+import net.minecraft.world.level.block.entity.BlockEntityType;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.shapes.CollisionContext;
+import net.minecraft.world.phys.shapes.VoxelShape;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.NullMarked;
 
-public class NewEnchantingBlock extends BlockWithEntity implements BlockEntityProvider {
+public class NewEnchantingBlock extends BaseEntityBlock implements EntityBlock {
 
-    private static final VoxelShape SHAPE = Block.createCuboidShape(0, 0, 0, 16, 12, 16);
+    private static final VoxelShape SHAPE = Block.box(0, 0, 0, 16, 12, 16);
 
-
-    public NewEnchantingBlock(Settings settings) {
-        super(settings);
+    public NewEnchantingBlock(Properties properties) {
+        super(properties);
     }
 
+    public static final MapCodec<NewEnchantingBlock> CODEC = simpleCodec(NewEnchantingBlock::new);
+
+    @NullMarked
     @Override
-    protected MapCodec<? extends BlockWithEntity> getCodec() {
-        return createCodec(NewChiseledBookshelfBlock::new);
+    protected MapCodec<? extends NewEnchantingBlock> codec() {
+        return CODEC;
     }
 
+    @NullMarked
     @Override
-    public VoxelShape getOutlineShape(BlockState state, BlockView world, BlockPos pos, ShapeContext context) {
+    public VoxelShape getShape(BlockState state, BlockGetter world, BlockPos pos, CollisionContext context) {
             return SHAPE;
     }
 
+    @NullMarked
     @Override
-    public BlockRenderType getRenderType(BlockState state) {
-            return BlockRenderType.MODEL;
+    public RenderShape getRenderShape(BlockState state) {
+            return RenderShape.MODEL;
     }
 
+    @NullMarked
     @Override
-    public @Nullable BlockEntity createBlockEntity(BlockPos pos, BlockState state) {
+    public @Nullable BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
         return new NewEnchantingTableBlockEntity(pos, state);
     }
 
+    @NullMarked
     @Override
-    public void onStateReplaced(BlockState state, ServerWorld world, BlockPos pos, boolean moved) {
+    public void affectNeighborsAfterRemoval(BlockState state, ServerLevel world, BlockPos pos, boolean moved) {
         BlockEntity blockEntity = world.getBlockEntity(pos);
         if (blockEntity instanceof NewEnchantingTableBlockEntity) {
-            ItemScatterer.spawn(world, pos, (NewEnchantingTableBlockEntity) blockEntity);
-            world.updateComparators(pos, this);
+            Containers.dropContents(world, pos, (NewEnchantingTableBlockEntity) blockEntity);
         }
-        super.onStateReplaced(state, world, pos, moved);
+        super.affectNeighborsAfterRemoval(state, world, pos, moved);
     }
 
+    @NullMarked
     @Override
-    public ActionResult onUse(BlockState state, World world, BlockPos pos, PlayerEntity player, BlockHitResult hit) {
-        if (world instanceof ServerWorld) {
+    public InteractionResult useWithoutItem(BlockState state, Level world, BlockPos pos, Player player, BlockHitResult hit) {
+        if (world instanceof ServerLevel) {
             BlockEntity be = world.getBlockEntity(pos);
-            if (be instanceof NamedScreenHandlerFactory factory) {
-                player.openHandledScreen(factory);
+            if (be instanceof MenuProvider factory) {
+                player.openMenu(factory);
             }
         }
-        return ActionResult.SUCCESS;
+        return InteractionResult.SUCCESS;
     }
 
+    @Nullable
     @Override
-    public <T extends BlockEntity> BlockEntityTicker<T> getTicker(World world, BlockState state, BlockEntityType<T> type) {
-        return validateTicker(type, ModBlockEntities.NEW_ENCHANTING_TABLE_BLOCK_ENTITY,
+    public <T extends BlockEntity> BlockEntityTicker<T> getTicker(
+            @NotNull Level world,
+            @NotNull BlockState state,
+            @NotNull BlockEntityType<T> type) {
+
+        return createTickerHelper(type, ModBlockEntities.NEW_ENCHANTING_TABLE_BLOCK_ENTITY,
                 NewEnchantingTableBlockEntity::tick);
     }
 }

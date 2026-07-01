@@ -6,62 +6,65 @@ import net.assassinreport.betterenchanting.screen.NewEnchantingScreenHandler;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
-import net.minecraft.enchantment.Enchantment;
-import net.minecraft.network.PacketByteBuf;
-import net.minecraft.network.RegistryByteBuf;
-import net.minecraft.network.codec.PacketCodec;
-import net.minecraft.network.codec.PacketCodecs;
-import net.minecraft.network.packet.CustomPayload;
-import net.minecraft.registry.RegistryKeys;
-import net.minecraft.registry.entry.RegistryEntry;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.util.Identifier;
+import net.minecraft.core.Holder;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.codec.ByteBufCodecs;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.item.enchantment.Enchantment;
+import org.jspecify.annotations.NullMarked;
 
 public class ClientToServerPackets {
 
-    public record RandomEnchantPayload() implements CustomPayload {
-        public static final CustomPayload.Id<RandomEnchantPayload> ID =
-                new CustomPayload.Id<>(Identifier.of(BetterEnchanting.MOD_ID, "random_enchant"));
-        public static final PacketCodec<PacketByteBuf, RandomEnchantPayload> CODEC =
-                PacketCodec.unit(new RandomEnchantPayload());
+    public record RandomEnchantPayload() implements CustomPacketPayload {
+        public static final CustomPacketPayload.Type<RandomEnchantPayload> ID =
+                new CustomPacketPayload.Type<>(Identifier.fromNamespaceAndPath(BetterEnchanting.MOD_ID, "random_enchant"));
+        public static final StreamCodec<FriendlyByteBuf, RandomEnchantPayload> CODEC =
+                StreamCodec.unit(new RandomEnchantPayload());
 
+        @NullMarked
         @Override
-        public CustomPayload.Id<RandomEnchantPayload> getId() { return ID; }
+        public CustomPacketPayload.Type<RandomEnchantPayload> type() { return ID; }
     }
 
-    public record SelectEnchantmentPayload(RegistryEntry<Enchantment> enchantment, int level) implements CustomPayload {
-        public static final CustomPayload.Id<SelectEnchantmentPayload> ID =
-                new CustomPayload.Id<>(Identifier.of(BetterEnchanting.MOD_ID, "select_enchantment"));
-        public static final PacketCodec<RegistryByteBuf, SelectEnchantmentPayload> CODEC =
-                PacketCodec.tuple(
-                        PacketCodecs.registryEntry(RegistryKeys.ENCHANTMENT), SelectEnchantmentPayload::enchantment,
-                        PacketCodecs.VAR_INT, SelectEnchantmentPayload::level,
+    public record SelectEnchantmentPayload(Holder<Enchantment> enchantment, int level) implements CustomPacketPayload {
+        public static final CustomPacketPayload.Type<SelectEnchantmentPayload> ID =
+                new CustomPacketPayload.Type<>(Identifier.fromNamespaceAndPath(BetterEnchanting.MOD_ID, "select_enchantment"));
+        public static final StreamCodec<RegistryFriendlyByteBuf, SelectEnchantmentPayload> CODEC =
+                StreamCodec.composite(
+                        ByteBufCodecs.holderRegistry(Registries.ENCHANTMENT), SelectEnchantmentPayload::enchantment,
+                        ByteBufCodecs.VAR_INT, SelectEnchantmentPayload::level,
                         SelectEnchantmentPayload::new
                 );
 
+        @NullMarked
         @Override
-        public CustomPayload.Id<SelectEnchantmentPayload> getId() { return ID; }
+        public CustomPacketPayload.Type<SelectEnchantmentPayload> type() { return ID; }
     }
 
     public static void register() {
-        PayloadTypeRegistry.playC2S().register(RandomEnchantPayload.ID, RandomEnchantPayload.CODEC);
-        PayloadTypeRegistry.playC2S().register(SelectEnchantmentPayload.ID, SelectEnchantmentPayload.CODEC);
+        PayloadTypeRegistry.serverboundPlay().register(RandomEnchantPayload.ID, RandomEnchantPayload.CODEC);
+        PayloadTypeRegistry.serverboundPlay().register(SelectEnchantmentPayload.ID, SelectEnchantmentPayload.CODEC);
 
         ServerPlayNetworking.registerGlobalReceiver(RandomEnchantPayload.ID,
                 (payload, context) -> {
-                    ServerPlayerEntity player = context.player();
-                    if (player.currentScreenHandler instanceof NewEnchantingScreenHandler enchantingHandler) {
+                    ServerPlayer player = context.player();
+                    if (player.containerMenu instanceof NewEnchantingScreenHandler enchantingHandler) {
                         enchantingHandler.tryRandomEnchant();
                     }
                 });
 
         ServerPlayNetworking.registerGlobalReceiver(SelectEnchantmentPayload.ID,
                 (payload, context) -> {
-                    ServerPlayerEntity player = context.player();
-                    RegistryEntry<Enchantment> enchantment = payload.enchantment();
+                    ServerPlayer player = context.player();
+                    Holder<Enchantment> enchantment = payload.enchantment();
                     int level = payload.level();
 
-                    if (player.currentScreenHandler instanceof NewEnchantingScreenHandler enchantingHandler) {
+                    if (player.containerMenu instanceof NewEnchantingScreenHandler enchantingHandler) {
                         var blockEntity = enchantingHandler.blockEntity;
                         var key = new NewEnchantingTableBlockEntity.EnchantmentLevel(enchantment, level);
 
@@ -76,7 +79,7 @@ public class ClientToServerPackets {
         ClientPlayNetworking.send(new RandomEnchantPayload());
     }
 
-    public static void sendSelectEnchantmentPacket(RegistryEntry<Enchantment> enchantment, int level) {
+    public static void sendSelectEnchantmentPacket(Holder<Enchantment> enchantment, int level) {
         ClientPlayNetworking.send(new SelectEnchantmentPayload(enchantment, level));
     }
 }

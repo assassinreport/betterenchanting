@@ -2,72 +2,80 @@ package net.assassinreport.betterenchanting.block.custom;
 
 import com.mojang.serialization.MapCodec;
 import net.assassinreport.betterenchanting.block.entity.NewChiseledBookshelfBlockEntity;
-import net.minecraft.block.*;
-import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.block.entity.ChiseledBookshelfBlockEntity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.ItemPlacementContext;
-import net.minecraft.screen.NamedScreenHandlerFactory;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.state.StateManager;
-import net.minecraft.state.property.BooleanProperty;
-import net.minecraft.state.property.EnumProperty;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.ItemScatterer;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.shape.VoxelShape;
-import net.minecraft.world.BlockView;
-import net.minecraft.world.World;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.Containers;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.MenuProvider;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.context.BlockPlaceContext;
+import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.*;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.state.BlockBehaviour;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.StateDefinition;
+import net.minecraft.world.level.block.state.properties.BooleanProperty;
+import net.minecraft.world.level.block.state.properties.EnumProperty;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.shapes.CollisionContext;
+import net.minecraft.world.phys.shapes.VoxelShape;
 import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.NullMarked;
 
-public class NewChiseledBookshelfBlock extends BlockWithEntity implements BlockEntityProvider {
+public class NewChiseledBookshelfBlock extends BaseEntityBlock implements EntityBlock {
 
-    public static final EnumProperty<Direction> FACING = HorizontalFacingBlock.FACING;
-    private static final VoxelShape SHAPE = Block.createCuboidShape(0, 0, 0, 16, 16, 16);
-    public static final BooleanProperty SLOT_0_OCCUPIED = BooleanProperty.of("slot_0_occupied");
-    public static final BooleanProperty SLOT_1_OCCUPIED = BooleanProperty.of("slot_1_occupied");
-    public static final BooleanProperty SLOT_2_OCCUPIED = BooleanProperty.of("slot_2_occupied");
-    public static final BooleanProperty SLOT_3_OCCUPIED = BooleanProperty.of("slot_3_occupied");
-    public static final BooleanProperty SLOT_4_OCCUPIED = BooleanProperty.of("slot_4_occupied");
-    public static final BooleanProperty SLOT_5_OCCUPIED = BooleanProperty.of("slot_5_occupied");
+    public static final EnumProperty<Direction> FACING = HorizontalDirectionalBlock.FACING;
+    private static final VoxelShape SHAPE = Block.box(0, 0, 0, 16, 16, 16);
+    public static final BooleanProperty SLOT_0_OCCUPIED = BooleanProperty.create("slot_0_occupied");
+    public static final BooleanProperty SLOT_1_OCCUPIED = BooleanProperty.create("slot_1_occupied");
+    public static final BooleanProperty SLOT_2_OCCUPIED = BooleanProperty.create("slot_2_occupied");
+    public static final BooleanProperty SLOT_3_OCCUPIED = BooleanProperty.create("slot_3_occupied");
+    public static final BooleanProperty SLOT_4_OCCUPIED = BooleanProperty.create("slot_4_occupied");
+    public static final BooleanProperty SLOT_5_OCCUPIED = BooleanProperty.create("slot_5_occupied");
 
-    public NewChiseledBookshelfBlock(Settings settings) {
-        super(settings);
-        this.setDefaultState(this.stateManager.getDefaultState()
-                .with(FACING, Direction.NORTH)
-                .with(SLOT_0_OCCUPIED, false)
-                .with(SLOT_1_OCCUPIED, false)
-                .with(SLOT_2_OCCUPIED, false)
-                .with(SLOT_3_OCCUPIED, false)
-                .with(SLOT_4_OCCUPIED, false)
-                .with(SLOT_5_OCCUPIED, false));
+    public static final MapCodec<NewChiseledBookshelfBlock> CODEC = simpleCodec(NewChiseledBookshelfBlock::new);
+
+    @NullMarked
+    @Override
+    protected MapCodec<? extends NewChiseledBookshelfBlock> codec() {
+        return CODEC;
+    }
+
+    public NewChiseledBookshelfBlock(BlockBehaviour.Properties properties) {
+        super(properties);
+        this.registerDefaultState(this.stateDefinition.any()
+                .setValue(FACING, Direction.NORTH)
+                .setValue(SLOT_0_OCCUPIED, false)
+                .setValue(SLOT_1_OCCUPIED, false)
+                .setValue(SLOT_2_OCCUPIED, false)
+                .setValue(SLOT_3_OCCUPIED, false)
+                .setValue(SLOT_4_OCCUPIED, false)
+                .setValue(SLOT_5_OCCUPIED, false));
     }
 
     @Override
-    protected MapCodec<? extends BlockWithEntity> getCodec() {
-        return createCodec(NewChiseledBookshelfBlock::new);
+    public BlockState getStateForPlacement(BlockPlaceContext ctx) {
+        return this.defaultBlockState()
+                .setValue(FACING, ctx.getHorizontalDirection().getOpposite())
+                .setValue(SLOT_0_OCCUPIED, false)
+                .setValue(SLOT_1_OCCUPIED, false)
+                .setValue(SLOT_2_OCCUPIED, false)
+                .setValue(SLOT_3_OCCUPIED, false)
+                .setValue(SLOT_4_OCCUPIED, false)
+                .setValue(SLOT_5_OCCUPIED, false);
     }
 
+    @NullMarked
     @Override
-    public BlockState getPlacementState(ItemPlacementContext ctx) {
-        return this.getDefaultState()
-                .with(FACING, ctx.getHorizontalPlayerFacing().getOpposite())
-                .with(SLOT_0_OCCUPIED, false)
-                .with(SLOT_1_OCCUPIED, false)
-                .with(SLOT_2_OCCUPIED, false)
-                .with(SLOT_3_OCCUPIED, false)
-                .with(SLOT_4_OCCUPIED, false)
-                .with(SLOT_5_OCCUPIED, false);
-    }
-    @Override
-    public VoxelShape getOutlineShape(BlockState state, BlockView world, BlockPos pos, ShapeContext context) {
+    protected VoxelShape getShape(BlockState state, BlockGetter world, BlockPos pos, CollisionContext context) {
         return SHAPE;
     }
 
     @Override
-    protected void appendProperties(StateManager.Builder<Block, BlockState> builder) {
+    protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
         builder.add(FACING);
         builder.add(SLOT_0_OCCUPIED);
         builder.add(SLOT_1_OCCUPIED);
@@ -77,49 +85,55 @@ public class NewChiseledBookshelfBlock extends BlockWithEntity implements BlockE
         builder.add(SLOT_5_OCCUPIED);
     }
 
+    @NullMarked
     @Override
-    public BlockRenderType getRenderType(BlockState state) {
-        return BlockRenderType.MODEL;
+    public RenderShape getRenderShape(BlockState state) {
+        return RenderShape.MODEL;
     }
 
+    @NullMarked
     @Override
-    public @Nullable BlockEntity createBlockEntity(BlockPos pos, BlockState state) {
+    public @Nullable BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
         return new NewChiseledBookshelfBlockEntity(pos, state);
     }
 
+    @NullMarked
     @Override
-    public void onStateReplaced(BlockState state, ServerWorld world, BlockPos pos, boolean moved) {
+    protected void affectNeighborsAfterRemoval(BlockState state, ServerLevel world, BlockPos pos, boolean movedByPiston) {
         BlockEntity blockEntity = world.getBlockEntity(pos);
-        if (blockEntity instanceof NewChiseledBookshelfBlockEntity) {
-            ItemScatterer.spawn(world, pos, (NewChiseledBookshelfBlockEntity) blockEntity);
-            world.updateComparators(pos, this);
+        if (blockEntity instanceof NewChiseledBookshelfBlockEntity bookshelfEntity) {
+            Containers.dropContents(world, pos, bookshelfEntity);
+            world.updateNeighbourForOutputSignal(pos, this);
         }
-        super.onStateReplaced(state, world, pos, moved);
+        super.affectNeighborsAfterRemoval(state, world, pos, movedByPiston);
     }
 
+    @NullMarked
     @Override
-    public ActionResult onUse(BlockState state, World world, BlockPos pos, PlayerEntity player, BlockHitResult hit) {
-        if (world instanceof ServerWorld) {
+    public InteractionResult useWithoutItem(BlockState state, Level world, BlockPos pos, Player player, BlockHitResult hit) {
+        if (world instanceof ServerLevel) {
             BlockEntity be = world.getBlockEntity(pos);
-            if (be instanceof NamedScreenHandlerFactory factory) {
-                player.openHandledScreen(factory);
+            if (be instanceof MenuProvider factory) {
+                player.openMenu(factory);
             }
         }
-        return ActionResult.SUCCESS;
+        return InteractionResult.SUCCESS;
     }
 
-    protected boolean hasComparatorOutput(BlockState state) {
+    @NullMarked
+    protected boolean hasAnalogOutputSignal(final BlockState state) {
         return true;
     }
 
-    protected int getComparatorOutput(BlockState state, World world, BlockPos pos, Direction direction) {
-        if (world.isClient()) {
+    @NullMarked
+    protected int getAnalogOutputSignal(final BlockState state, final Level level, final BlockPos pos, final Direction direction) {
+        if (level.isClientSide()) {
             return 0;
         } else {
-            BlockEntity var6 = world.getBlockEntity(pos);
-            if (var6 instanceof ChiseledBookshelfBlockEntity) {
-                ChiseledBookshelfBlockEntity chiseledBookshelfBlockEntity = (ChiseledBookshelfBlockEntity)var6;
-                return chiseledBookshelfBlockEntity.getLastInteractedSlot() + 1;
+            BlockEntity var6 = level.getBlockEntity(pos);
+            if (var6 instanceof NewChiseledBookshelfBlockEntity) {
+                NewChiseledBookshelfBlockEntity blockEntity = (NewChiseledBookshelfBlockEntity)var6;
+                return blockEntity.getLastInteractedSlot() + 1;
             } else {
                 return 0;
             }

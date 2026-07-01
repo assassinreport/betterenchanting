@@ -5,44 +5,43 @@ import net.assassinreport.betterenchanting.enchanting.BookshelfScanner;
 import net.assassinreport.betterenchanting.enchanting.RandomPoolBuilder;
 import net.assassinreport.betterenchanting.enchanting.XPCostCalculator;
 import net.assassinreport.betterenchanting.screen.NewEnchantingScreenHandler;
-import net.fabricmc.fabric.api.screenhandler.v1.ExtendedScreenHandlerFactory;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.enchantment.Enchantment;
-import net.minecraft.enchantment.EnchantmentHelper;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.entity.player.PlayerInventory;
-import net.minecraft.inventory.Inventories;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.network.listener.ClientPlayPacketListener;
-import net.minecraft.network.packet.Packet;
-import net.minecraft.network.packet.s2c.play.BlockEntityUpdateS2CPacket;
-import net.minecraft.registry.RegistryKey;
-import net.minecraft.registry.RegistryKeys;
-import net.minecraft.registry.RegistryWrapper;
-import net.minecraft.registry.entry.RegistryEntry;
-import net.minecraft.screen.ScreenHandler;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.storage.ReadView;
-import net.minecraft.storage.WriteView;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.collection.DefaultedList;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.World;
+import net.fabricmc.fabric.api.menu.v1.ExtendedMenuProvider;
+import net.minecraft.core.*;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.game.ClientGamePacketListener;
+import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
+import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.ContainerHelper;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.enchantment.Enchantment;
+import net.minecraft.world.item.enchantment.EnchantmentHelper;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.storage.ValueInput;
+import net.minecraft.world.level.storage.ValueOutput;
 import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.NullMarked;
 
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class NewEnchantingTableBlockEntity extends BlockEntity implements ExtendedScreenHandlerFactory<BlockPos>, ImplementedInventory {
+public class NewEnchantingTableBlockEntity extends BlockEntity implements ExtendedMenuProvider<BlockPos>, ImplementedInventory {
 
-    private final DefaultedList<ItemStack> inventory = DefaultedList.ofSize(1, ItemStack.EMPTY);
+    private final NonNullList<ItemStack> inventory = NonNullList.withSize(1, ItemStack.EMPTY);
 
     private final Map<EnchantmentLevel, Integer> cachedEnchantments = new HashMap<>();
 
@@ -56,25 +55,29 @@ public class NewEnchantingTableBlockEntity extends BlockEntity implements Extend
         super(ModBlockEntities.NEW_ENCHANTING_TABLE_BLOCK_ENTITY, pos, state);
     }
 
+    @NullMarked
     @Nullable
     @Override
-    public ScreenHandler createMenu(int syncId, PlayerInventory playerInventory, PlayerEntity player) {
+    public AbstractContainerMenu createMenu(int syncId, Inventory playerInventory, Player player) {
         return new NewEnchantingScreenHandler(syncId, playerInventory, this);
     }
 
+    @NullMarked
     @Override
-    public Text getDisplayName() {
-        return Text.translatable("item.betterenchanting.new_enchanting_table");
+    public Component getDisplayName() {
+        return Component.translatable("item.betterenchanting.new_enchanting_table");
     }
 
+    @NullMarked
     @Override
-    public DefaultedList<ItemStack> getItems() {
+    public NonNullList<ItemStack> getItems() {
         return inventory;
     }
 
+    @NullMarked
     @Override
-    public BlockPos getScreenOpeningData(ServerPlayerEntity player) {
-        return this.pos;
+    public BlockPos getScreenOpeningData(ServerPlayer player) {
+        return this.worldPosition;
     }
 
     // -------------------------------------------
@@ -82,13 +85,13 @@ public class NewEnchantingTableBlockEntity extends BlockEntity implements Extend
     // -------------------------------------------
 
     private Map<EnchantmentLevel, Integer> scanBonusBooks() {
-        return world == null ? Collections.emptyMap() : BookshelfScanner.scan(world, pos, 3);
+        return level == null ? Collections.emptyMap() : BookshelfScanner.scan(level, worldPosition, 3);
     }
 
-    public static void tick(World world, BlockPos pos, BlockState state, NewEnchantingTableBlockEntity table) {
+    public static void tick(Level world, BlockPos pos, BlockState state, NewEnchantingTableBlockEntity table) {
         table.bookAnimation.tick(world, pos);
 
-        if (world instanceof ServerWorld && table.bookAnimation.ticks % 20 == 0) {
+        if (world instanceof ServerLevel && table.bookAnimation.ticks % 20 == 0) {
             table.refreshCachedEnchantmentsAndSync();
         }
     }
@@ -98,7 +101,7 @@ public class NewEnchantingTableBlockEntity extends BlockEntity implements Extend
     }
 
     public void refreshCachedEnchantmentsAndSync() {
-        if (world instanceof ServerWorld) {
+        if (level instanceof ServerLevel) {
             cachedEnchantments.clear();
             cachedEnchantments.putAll(scanBonusBooks());
             sync();
@@ -109,13 +112,13 @@ public class NewEnchantingTableBlockEntity extends BlockEntity implements Extend
     //          Enchanting Logic
     // --------------------------------------
 
-    public List<RegistryEntry<Enchantment>> getValidEnchantments(ItemStack item) {
-        if (world == null) return List.of();
-        var registry = world.getRegistryManager().getOrThrow(RegistryKeys.ENCHANTMENT);
-        List<RegistryEntry<Enchantment>> all = registry.streamEntries().map(e -> (RegistryEntry<Enchantment>) e).toList();
-        if (item.isOf(Items.BOOK)) return all;
+    public List<Holder<Enchantment>> getValidEnchantments(ItemStack item) {
+        if (level == null) return List.of();
+        var registry = level.registryAccess().lookupOrThrow(Registries.ENCHANTMENT);
+        List<Holder<Enchantment>> all = registry.listElements().map(e -> (Holder<Enchantment>) e).toList();
+        if (item.is(Items.BOOK)) return all;
         return all.stream()
-                .filter(e -> e.value().isAcceptableItem(item))
+                .filter(e -> e.value().isSupportedItem(item))
                 .toList();
     }
 
@@ -125,19 +128,19 @@ public class NewEnchantingTableBlockEntity extends BlockEntity implements Extend
         return RandomPoolBuilder.buildWeightedPool(valid, bonus, stack);
     }
 
-    public boolean canAfford(PlayerEntity player,
+    public boolean canAfford(Player player,
                               RandomPoolBuilder.WeightedEntry entry,
                               Map<EnchantmentLevel, Integer> bonus) {
         return player.experienceLevel >= XPCostCalculator.computeCost(entry.enchant, bonus);
     }
 
-    public boolean canAffordAny(PlayerEntity player, ItemStack stack) {
+    public boolean canAffordAny(Player player, ItemStack stack) {
         if (stack.isEmpty()) return false;
         var pool = getRandomPoolForItem(stack); // uses RandomPoolBuilder internally
         return pool.stream().anyMatch(e -> canAfford(player, e, getCachedEnchantments()));
     }
 
-    public void tryEnchantItem(PlayerEntity player) {
+    public void tryEnchantItem(Player player) {
         ItemStack item = inventory.getFirst();
         if (item.isEmpty()) return;
 
@@ -152,16 +155,16 @@ public class NewEnchantingTableBlockEntity extends BlockEntity implements Extend
         ItemStack base = item.copy();
         ItemStack result = applyEnchant(base, selected);
         inventory.set(0, result);
-        player.addExperienceLevels(-XPCostCalculator.computeCost(selected, bonusWeights));
+        player.giveExperienceLevels(-XPCostCalculator.computeCost(selected, bonusWeights));
     }
 
     private ItemStack applyEnchant(ItemStack stack, SelectedEnchantment selected) {
-        if (stack.isOf(Items.BOOK)) {
+        if (stack.is(Items.BOOK)) {
             ItemStack result = new ItemStack(Items.ENCHANTED_BOOK);
-            EnchantmentHelper.apply(result, builder -> builder.add(selected.enchantment(), selected.level()));
+            EnchantmentHelper.updateEnchantments(result, builder -> builder.set(selected.enchantment(), selected.level()));
             return result;
         }
-        stack.addEnchantment(selected.enchantment(), selected.level());
+        stack.enchant(selected.enchantment(), selected.level());
         return stack;
     }
 
@@ -170,61 +173,59 @@ public class NewEnchantingTableBlockEntity extends BlockEntity implements Extend
     // ---------------------------
 
     public void sync() {
-        if (world instanceof ServerWorld) {
-            world.updateListeners(pos, getCachedState(), getCachedState(), 3);
+        if (level instanceof ServerLevel) {
+            level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), Block.UPDATE_CLIENTS);
         }
     }
 
     @Override
-    public Packet<ClientPlayPacketListener> toUpdatePacket() {
-        return BlockEntityUpdateS2CPacket.create(this);
+    public Packet<ClientGamePacketListener> getUpdatePacket() {
+        return ClientboundBlockEntityDataPacket.create(this);
     }
 
-    // ---------------------------
-    //          NBT
-    // ---------------------------
+    @NullMarked
     @Override
-    protected void writeData(WriteView view) {
-        super.writeData(view);
-        Inventories.writeData(view, inventory);
+    protected void saveAdditional(ValueOutput output) {
+        super.saveAdditional(output);
+        ContainerHelper.saveAllItems(output, inventory);
 
-        WriteView.ListView listView = view.getList("cachedEnchantments");
+        ValueOutput.ValueOutputList listValue = output.childrenList("cachedEnchantments");
         for (var entry : cachedEnchantments.entrySet()) {
             EnchantmentLevel key = entry.getKey();
-            Identifier id = key.enchantment().getKey()
+            Identifier id = key.enchantment().unwrapKey()
                     .orElseThrow(() -> new IllegalStateException("Unregistered enchantment"))
-                    .getValue();
-            WriteView tag = listView.add();
-            tag.putString("id", id.toString());
-            tag.putInt("lvl", key.level());
-            tag.putInt("count", entry.getValue());
+                    .identifier();
+            ValueOutput child = listValue.addChild();
+            child.putString("id", id.toString());
+            child.putInt("lvl", key.level());
+            child.putInt("count", entry.getValue());
         }
     }
 
+    @NullMarked
     @Override
-    protected void readData(ReadView view) {
-        super.readData(view);
-        Inventories.readData(view, inventory);
+    protected void loadAdditional(ValueInput input) {
+        super.loadAdditional(input);
+        ContainerHelper.loadAllItems(input, inventory);
 
         cachedEnchantments.clear();
-        var enchantmentRegistry = view.getRegistries().getOrThrow(RegistryKeys.ENCHANTMENT);
-        view.getListReadView("cachedEnchantments").stream().forEach(tag -> {
-            Identifier id = Identifier.of(tag.getString("id", ""));
-            RegistryEntry<Enchantment> ench = enchantmentRegistry
-                    .getOptional(RegistryKey.of(RegistryKeys.ENCHANTMENT, id))
-                    .orElseThrow();
-            int lvl = tag.getInt("lvl", 0);
-            int count = tag.getInt("count", 0);
+        var enchantmentRegistry = input.lookup().lookupOrThrow(Registries.ENCHANTMENT);
+        for (ValueInput child : input.childrenListOrEmpty("cachedEnchantments")) {
+            Identifier id = Identifier.parse(child.getStringOr("id", ""));
+            Holder<Enchantment> ench = enchantmentRegistry.getOrThrow(ResourceKey.create(Registries.ENCHANTMENT, id));
+            int lvl = child.getIntOr("lvl", 0);
+            int count = child.getIntOr("count", 0);
             cachedEnchantments.put(new EnchantmentLevel(ench, lvl), count);
-        });
+        }
     }
 
+    @NullMarked
     @Override
-    public NbtCompound toInitialChunkDataNbt(RegistryWrapper.WrapperLookup registryLookup) {
-        return createNbt(registryLookup); // base class handles WriteView plumbing
+    public CompoundTag getUpdateTag(HolderLookup.Provider registries) {
+        return saveWithoutMetadata(registries);
     }
 
     // -------- Records ------------
-    public record EnchantmentLevel(RegistryEntry<Enchantment> enchantment, int level) {}
-    public record SelectedEnchantment(RegistryEntry<Enchantment> enchantment, int level) {}
+    public record EnchantmentLevel(Holder<Enchantment> enchantment, int level) {}
+    public record SelectedEnchantment(Holder<Enchantment> enchantment, int level) {}
 }

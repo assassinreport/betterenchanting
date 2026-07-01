@@ -2,21 +2,22 @@ package net.assassinreport.betterenchanting.screen.buttons;
 
 import net.assassinreport.betterenchanting.block.entity.NewEnchantingTableBlockEntity;
 import net.assassinreport.betterenchanting.screen.NewEnchantingScreen;
-import net.minecraft.client.gl.RenderPipelines;
-import net.minecraft.client.gui.Click;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.narration.NarrationMessageBuilder;
-import net.minecraft.client.gui.widget.ClickableWidget;
-import net.minecraft.enchantment.Enchantment;
-import net.minecraft.screen.ScreenTexts;
-import net.minecraft.registry.entry.RegistryEntry;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.components.AbstractWidget;
+import net.minecraft.client.gui.narration.NarrationElementOutput;
+import net.minecraft.client.input.MouseButtonEvent;
+import net.minecraft.client.renderer.RenderPipelines;
+import net.minecraft.core.Holder;
+import net.minecraft.network.chat.CommonComponents;
+import net.minecraft.world.item.enchantment.Enchantment;
+import org.jspecify.annotations.NullMarked;
 
 import java.util.Map;
 
-public class SelectableEnchantButtons extends ClickableWidget {
-    private final RegistryEntry<Enchantment> enchant;
+public class SelectableEnchantButtons extends AbstractWidget {
+    private final Holder<Enchantment> enchant;
     private final NewEnchantingTableBlockEntity blockEntity;
-    private final Map<RegistryEntry<Enchantment>, Integer> weights;
+    private final Map<Holder<Enchantment>, Integer> weights;
     private final PressAction onPress;
 
     public interface PressAction {
@@ -24,24 +25,26 @@ public class SelectableEnchantButtons extends ClickableWidget {
     }
 
     public SelectableEnchantButtons(int x, int y, int width, int height,
-                                    RegistryEntry<Enchantment> enchant,
+                                    Holder<Enchantment> enchant,
                                     NewEnchantingTableBlockEntity blockEntity,
-                                    Map<RegistryEntry<Enchantment>, Integer> weights,
+                                    Map<Holder<Enchantment>, Integer> weights,
                                     PressAction onPress) {
-        super(x, y, width, height, ScreenTexts.EMPTY); // Fixes Text.empty() removal
+        super(x, y, width, height, CommonComponents.EMPTY);
         this.enchant = enchant;
         this.blockEntity = blockEntity;
         this.weights = weights;
         this.onPress = onPress;
     }
 
+    @NullMarked
     @Override
-    public void onClick(Click click, boolean doubled) {
+    public void onClick(MouseButtonEvent event, boolean doubleClick) {
         this.onPress.onPress(this);
     }
 
+    @NullMarked
     @Override
-    protected void renderWidget(DrawContext context, int mouseX, int mouseY, float delta) {
+    protected void extractWidgetRenderState(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta) {
         boolean active = false;
         int maxLevel = 1;
 
@@ -61,7 +64,7 @@ public class SelectableEnchantButtons extends ClickableWidget {
         int baseIndex = weights.getOrDefault(enchant, 0);
         int textureIndex = baseIndex + (maxLevel - 1);
 
-        context.drawTexture(
+        context.blit(
                 RenderPipelines.GUI_TEXTURED,
                 NewEnchantingScreen.TEXTURE,
                 getX(), getY(),
@@ -72,12 +75,13 @@ public class SelectableEnchantButtons extends ClickableWidget {
         );
     }
 
+    @NullMarked
     @Override
-    protected void appendClickableNarrations(NarrationMessageBuilder builder) {
-        this.appendDefaultNarrations(builder);
+    protected void updateWidgetNarration(NarrationElementOutput builder) {
+        this.defaultButtonNarrationText(builder);
     }
 
-    public RegistryEntry<Enchantment> getEnchantment() {
+    public Holder<Enchantment> getEnchantment() {
         return enchant;
     }
 }

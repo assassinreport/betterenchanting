@@ -1,49 +1,50 @@
 package net.assassinreport.betterenchanting.block.entity.renderer;
 
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.math.Axis;
 import net.assassinreport.betterenchanting.block.entity.NewEnchantingTableBlockEntity;
-import net.minecraft.client.render.OverlayTexture;
-import net.minecraft.client.render.RenderLayers;
-import net.minecraft.client.render.TexturedRenderLayers;
-import net.minecraft.client.render.block.entity.BlockEntityRenderer;
-import net.minecraft.client.render.block.entity.BlockEntityRendererFactory;
-import net.minecraft.client.render.block.entity.state.BlockEntityRenderState;
-import net.minecraft.client.render.command.ModelCommandRenderer;
-import net.minecraft.client.render.command.OrderedRenderCommandQueue;
-import net.minecraft.client.render.entity.model.BookModel;
-import net.minecraft.client.render.entity.model.EntityModelLayers;
-import net.minecraft.client.render.state.CameraRenderState;
-import net.minecraft.client.texture.SpriteHolder;
-import net.minecraft.client.util.SpriteIdentifier;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.RotationAxis;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.model.geom.ModelLayers;
+import net.minecraft.client.model.object.book.BookModel;
+import net.minecraft.client.renderer.Sheets;
+import net.minecraft.client.renderer.SubmitNodeCollector;
+import net.minecraft.client.renderer.blockentity.BlockEntityRenderer;
+import net.minecraft.client.renderer.blockentity.BlockEntityRendererProvider;
+import net.minecraft.client.renderer.blockentity.state.BlockEntityRenderState;
+import net.minecraft.client.renderer.feature.ModelFeatureRenderer;
+import net.minecraft.client.renderer.state.level.CameraRenderState;
+import net.minecraft.client.renderer.texture.OverlayTexture;
+import net.minecraft.client.resources.model.sprite.SpriteGetter;
+import net.minecraft.client.resources.model.sprite.SpriteId;
+import net.minecraft.util.Mth;
+import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.NullMarked;
 
 public class NewEnchantingTableBlockEntityRenderer implements BlockEntityRenderer<NewEnchantingTableBlockEntity, NewEnchantingTableBlockEntityRenderer.State> {
 
-    public static final SpriteIdentifier BOOK_TEXTURE =
-            TexturedRenderLayers.ENTITY_SPRITE_MAPPER.mapVanilla("enchanting_table_book");
+    public static final SpriteId BOOK_TEXTURE = Sheets.BLOCK_ENTITIES_MAPPER.defaultNamespaceApply("enchantment/enchanting_table_book");
 
-    private final SpriteHolder spriteHolder;
+    private final SpriteGetter sprites;
     private final BookModel book;
 
-    public NewEnchantingTableBlockEntityRenderer(BlockEntityRendererFactory.Context ctx) {
-        this.spriteHolder = ctx.spriteHolder();
-        this.book = new BookModel(ctx.getLayerModelPart(EntityModelLayers.BOOK));
+    public NewEnchantingTableBlockEntityRenderer(BlockEntityRendererProvider.Context ctx) {
+        this.sprites = ctx.sprites();
+        this.book = new BookModel(ctx.bakeLayer(ModelLayers.BOOK));
     }
 
+    @NullMarked
     @Override
     public State createRenderState() {
         return new State();
     }
 
+    @NullMarked
     @Override
-    public void updateRenderState(NewEnchantingTableBlockEntity entity, State state, float tickDelta,
-                                  Vec3d cameraPos, @Nullable ModelCommandRenderer.CrumblingOverlayCommand crumblingOverlay) {
-        BlockEntityRenderer.super.updateRenderState(entity, state, tickDelta, cameraPos, crumblingOverlay);
-        state.pageAngle = MathHelper.lerp(tickDelta, entity.bookAnimation.pageAngle, entity.bookAnimation.nextPageAngle);
-        state.pageTurningSpeed = MathHelper.lerp(tickDelta, entity.bookAnimation.pageTurningSpeed, entity.bookAnimation.nextPageTurningSpeed);
+    public void extractRenderState(NewEnchantingTableBlockEntity entity, State state, float tickDelta,
+                                   Vec3 cameraPos, @Nullable ModelFeatureRenderer.CrumblingOverlay crumblingOverlay) {
+        BlockEntityRenderer.super.extractRenderState(entity, state, tickDelta, cameraPos, crumblingOverlay);
+        state.pageAngle = Mth.lerp(tickDelta, entity.bookAnimation.pageAngle, entity.bookAnimation.nextPageAngle);
+        state.pageTurningSpeed = Mth.lerp(tickDelta, entity.bookAnimation.pageTurningSpeed, entity.bookAnimation.nextPageTurningSpeed);
         state.ticks = entity.bookAnimation.ticks + tickDelta;
 
         float rotationDiff = entity.bookAnimation.bookRotation - entity.bookAnimation.lastBookRotation;
@@ -52,35 +53,36 @@ public class NewEnchantingTableBlockEntityRenderer implements BlockEntityRendere
         state.bookRotationDegrees = entity.bookAnimation.lastBookRotation + rotationDiff * tickDelta;
     }
 
+    @NullMarked
     @Override
-    public void render(State state, MatrixStack matrices, OrderedRenderCommandQueue queue,
+    public void submit(State state, PoseStack poseStack, SubmitNodeCollector submitNodeCollector,
                        CameraRenderState cameraRenderState) {
-        matrices.push();
-        matrices.translate(0.5F, 0.75F, 0.5F);
-        matrices.translate(0.0F, 0.1F + MathHelper.sin(state.ticks * 0.1F) * 0.01F, 0.0F);
-        matrices.multiply(RotationAxis.POSITIVE_Y.rotation(-state.bookRotationDegrees));
-        matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(80.0F));
+        poseStack.pushPose();
+        poseStack.translate(0.5F, 0.75F, 0.5F);
+        poseStack.translate(0.0F, 0.1F + Mth.sin(state.ticks * 0.1F) * 0.01F, 0.0F);
+        poseStack.mulPose(Axis.YP.rotation(-state.bookRotationDegrees));
+        poseStack.mulPose(Axis.ZP.rotationDegrees(80.0F));
 
-        float page1 = MathHelper.fractionalPart(state.pageAngle + 0.25F) * 1.6F - 0.3F;
-        float page2 = MathHelper.fractionalPart(state.pageAngle + 0.75F) * 1.6F - 0.3F;
-        BookModel.BookModelState bookState = new BookModel.BookModelState(
+        float page1 = Mth.frac(state.pageAngle + 0.25F) * 1.6F - 0.3F;
+        float page2 = Mth.frac(state.pageAngle + 0.75F) * 1.6F - 0.3F;
+        BookModel.State bookState = BookModel.State.forAnimation(
                 state.ticks,
-                MathHelper.clamp(page1, 0.0F, 1.0F),
-                MathHelper.clamp(page2, 0.0F, 1.0F),
+                Mth.clamp(page1, 0.0F, 1.0F),
+                Mth.clamp(page2, 0.0F, 1.0F),
                 state.pageTurningSpeed
         );
 
-        queue.submitModel(
-                this.book, bookState, matrices,
-                BOOK_TEXTURE.getRenderLayer(RenderLayers::entitySolid),
-                state.lightmapCoordinates, OverlayTexture.DEFAULT_UV,
+        submitNodeCollector.submitModel(
+                this.book, bookState, poseStack,
+                state.lightCoords, OverlayTexture.NO_OVERLAY,
                 -1,
-                this.spriteHolder.getSprite(BOOK_TEXTURE),
+                BOOK_TEXTURE,
+                this.sprites,
                 0,
-                state.crumblingOverlay
+                state.breakProgress
         );
 
-        matrices.pop();
+        poseStack.popPose();
     }
 
     public static class State extends BlockEntityRenderState {

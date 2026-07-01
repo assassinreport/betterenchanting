@@ -1,33 +1,34 @@
 package net.assassinreport.betterenchanting.screen;
 
 import net.assassinreport.betterenchanting.block.entity.NewEnchantingTableBlockEntity;
-import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.component.DataComponentTypes;
-import net.minecraft.component.type.EquippableComponent;
-import net.minecraft.enchantment.Enchantment;
-import net.minecraft.enchantment.EnchantmentHelper;
-import net.minecraft.entity.EquipmentSlot;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.entity.player.PlayerInventory;
-import net.minecraft.inventory.Inventory;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.registry.entry.RegistryEntry;
-import net.minecraft.screen.ScreenHandler;
-import net.minecraft.screen.slot.Slot;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.sound.SoundCategory;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.World;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Holder;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.Container;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.inventory.Slot;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.enchantment.Enchantment;
+import net.minecraft.world.item.enchantment.EnchantmentHelper;
+import net.minecraft.world.item.equipment.Equippable;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import org.jspecify.annotations.NullMarked;
 
-public class NewEnchantingScreenHandler extends ScreenHandler {
+public class NewEnchantingScreenHandler extends AbstractContainerMenu {
 
-    private final Inventory inventory;
+    private final Container inventory;
     public final NewEnchantingTableBlockEntity blockEntity;
-    private final PlayerEntity player;
-    private final World world;
+    private final Player player;
+    private final Level world;
     private final BlockPos pos;
 
     private static final int TABLE_SLOT = 1;
@@ -50,8 +51,7 @@ public class NewEnchantingScreenHandler extends ScreenHandler {
     //          Constructors
     // -----------------------------
 
-    public NewEnchantingScreenHandler(int syncId, PlayerInventory playerInventory,
-                                      BlockEntity blockEntity) {
+    public NewEnchantingScreenHandler(int syncId, Inventory playerInventory, BlockEntity blockEntity) {
         super(ModScreenHandlers.NEW_ENCHANTING_SCREEN_HANDLER, syncId);
         this.player = playerInventory.player;
 
@@ -59,30 +59,32 @@ public class NewEnchantingScreenHandler extends ScreenHandler {
             throw new IllegalStateException("Block entity is not a NewEnchantingTableBlockEntity!");
         }
 
-        checkSize(be, 1);
+        checkContainerSize(be, 1);
         this.inventory = be;
         this.blockEntity = be;
-        this.world = be.getWorld();
-        this.pos = be.getPos();
-        inventory.onOpen(playerInventory.player);
+        this.world = be.getLevel();
+        this.pos = be.getBlockPos();
+        inventory.startOpen(playerInventory.player);
 
         this.addSlot(new Slot(inventory, 0, 18, 78) {
+            @NullMarked
             @Override
-            public boolean canInsert(ItemStack stack) {
-                return stack.isOf(Items.BOOK)
-                        || stack.isOf(Items.ENCHANTED_BOOK)
+            public boolean mayPlace(ItemStack stack) {
+                return stack.is(Items.BOOK)
+                        || stack.is(Items.ENCHANTED_BOOK)
                         || stack.isEnchantable()
-                        || !EnchantmentHelper.getEnchantments(stack).isEmpty();
+                        || !EnchantmentHelper.getEnchantmentsForCrafting(stack).isEmpty();
             }
 
             @Override
-            public int getMaxItemCount() {
+            public int getMaxStackSize() {
                 return 1;
             }
 
+            @NullMarked
             @Override
-            public void setStack(ItemStack stack) {
-                super.setStack(stack);
+            public void set(ItemStack stack) {
+                super.set(stack);
                 if (!stack.isEmpty()) {
                     playBookOpenSound();
                 }
@@ -96,35 +98,35 @@ public class NewEnchantingScreenHandler extends ScreenHandler {
 
     // ---------------- ClientToServer -------------------
 
-    public NewEnchantingScreenHandler(int syncId, PlayerInventory inventory, BlockPos pos) {
-        this(syncId, inventory, inventory.player.getEntityWorld().getBlockEntity(pos));
+    public NewEnchantingScreenHandler(int syncId, Inventory inventory, BlockPos pos) {
+        this(syncId, inventory, inventory.player.level().getBlockEntity(pos));
     }
 
     // ------------------ Enchanting----------------------
 
-    private boolean hasEnchantment(ItemStack stack, RegistryEntry<Enchantment> enchantment, int level) {
+    private boolean hasEnchantment(ItemStack stack, Holder<Enchantment> enchantment, int level) {
         if (stack.isEmpty()) return false;
-        int existing = EnchantmentHelper.getEnchantments(stack).getLevel(enchantment);
+        int existing = EnchantmentHelper.getEnchantmentsForCrafting(stack).getLevel(enchantment);
         return existing >= level;
     }
 
     public void tryRandomEnchant() {
-        if (this.world instanceof ServerWorld) {
+        if (this.world instanceof ServerLevel) {
             this.blockEntity.tryEnchantItem(player);
-            this.sendContentUpdates();
+            this.broadcastChanges();
         }
         playEnchantSound();
     }
 
-    public void trySelectableEnchant(ServerPlayerEntity player, RegistryEntry<Enchantment> enchantment, int level) {
-        ItemStack input = getSlot(0).getStack();
+    public void trySelectableEnchant(ServerPlayer player, Holder<Enchantment> enchantment, int level) {
+        ItemStack input = getSlot(0).getItem();
         if (input.isEmpty()) return;
-        if (input.isOf(Items.BOOK) || input.isOf(Items.ENCHANTED_BOOK)) return;
+        if (input.is(Items.BOOK) || input.is(Items.ENCHANTED_BOOK)) return;
         if (hasEnchantment(input, enchantment, level)) return;
 
-        input.addEnchantment(enchantment, level);
-        getSlot(0).markDirty();
-        sendContentUpdates();
+        input.enchant(enchantment, level);
+        getSlot(0).setChanged();
+        broadcastChanges();
         playEnchantSound();
     }
 
@@ -133,19 +135,20 @@ public class NewEnchantingScreenHandler extends ScreenHandler {
     private void insertOnlyOneItemIntoSlot(Slot slot, ItemStack stack) {
         ItemStack copy = stack.copy();
         copy.setCount(1);
-        slot.setStack(copy);
-        stack.decrement(1);
-        slot.markDirty();
+        slot.set(copy);
+        stack.shrink(1);
+        slot.setChanged();
     }
 
+    @NullMarked
     @Override
-    protected boolean insertItem(ItemStack stack, int start, int end, boolean reverse) {
+    protected boolean moveItemStackTo(ItemStack stack, int start, int end, boolean reverse) {
         boolean inserted = false;
         int i = reverse ? end - 1 : start;
 
         while (i >= start && i < end) {
             Slot slot = slots.get(i);
-            if (!slot.hasStack() && slot.canInsert(stack)) {
+            if (!slot.hasItem() && slot.mayPlace(stack)) {
                 insertOnlyOneItemIntoSlot(slot, stack);
                 inserted = true;
                 if (stack.isEmpty()) break;
@@ -156,43 +159,45 @@ public class NewEnchantingScreenHandler extends ScreenHandler {
         return inserted;
     }
 
+    @NullMarked
     @Override
-    public ItemStack quickMove(PlayerEntity player, int invSlot) {
+    public ItemStack quickMoveStack(Player player, int invSlot) {
         Slot slot = this.slots.get(invSlot);
-        if (!slot.hasStack()) return ItemStack.EMPTY;
+        if (!slot.hasItem()) return ItemStack.EMPTY;
 
-        ItemStack originalStack = slot.getStack();
+        ItemStack originalStack = slot.getItem();
         ItemStack newStack = originalStack.copy();
 
         if (invSlot < TABLE_SLOT) {
-            if (!this.insertItem(originalStack, HOTBAR_START, HOTBAR_END + 1, false)) {
-                if (!this.insertItem(originalStack, OFFHAND_SLOT, OFFHAND_SLOT + 1, false)) {
-                    if (!this.insertItem(originalStack, MAIN_INV_START, MAIN_INV_END + 1, false)) {
+            if (!this.moveItemStackTo(originalStack, HOTBAR_START, HOTBAR_END + 1, false)) {
+                if (!this.moveItemStackTo(originalStack, OFFHAND_SLOT, OFFHAND_SLOT + 1, false)) {
+                    if (!this.moveItemStackTo(originalStack, MAIN_INV_START, MAIN_INV_END + 1, false)) {
                         return ItemStack.EMPTY;
                     }
                 }
             }
         } else {
-            if (!this.insertItem(originalStack, 0, TABLE_SLOT, false)) {
+            if (!this.moveItemStackTo(originalStack, 0, TABLE_SLOT, false)) {
                 return ItemStack.EMPTY;
             }
         }
 
         if (originalStack.isEmpty()) {
-            slot.setStack(ItemStack.EMPTY);
+            slot.set(ItemStack.EMPTY);
         } else {
-            slot.markDirty();
+            slot.setChanged();
         }
 
         return newStack;
     }
 
+    @NullMarked
     @Override
-    public boolean canUse(PlayerEntity player) {
-        return this.inventory.canPlayerUse(player);
+    public boolean stillValid(Player player) {
+        return this.inventory.stillValid(player);
     }
 
-    private void addPlayerInventory(PlayerInventory playerInventory) {
+    private void addPlayerInventory(Inventory playerInventory) {
         for (int i = 0; i < 3; ++i) {
             for (int l = 0; l < 9; ++l) {
                 this.addSlot(new Slot(playerInventory, l + i * 9 + 9, 30 + l * 18, 140 + i * 18));
@@ -200,13 +205,13 @@ public class NewEnchantingScreenHandler extends ScreenHandler {
         }
     }
 
-    private void addPlayerHotbar(PlayerInventory playerInventory) {
+    private void addPlayerHotbar(Inventory playerInventory) {
         for (int i = 0; i < 9; ++i) {
             this.addSlot(new Slot(playerInventory, i, 30 + i * 18, 198));
         }
     }
 
-    private void addArmorSlots(PlayerInventory inv) {
+    private void addArmorSlots(Inventory inv) {
         EquipmentSlot[] types = {EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET};
         int[][] pos = {{8,140},{8,158},{8,176},{8,198}};
 
@@ -215,18 +220,18 @@ public class NewEnchantingScreenHandler extends ScreenHandler {
             int slotIndex = 39 - i;
 
             armorSlotIds[i] = addSlot(new Slot(inv, slotIndex, pos[i][0], pos[i][1]) {
+                @NullMarked
                 @Override
-                public boolean canInsert(ItemStack s) {
-                    EquippableComponent equippable = s.get(DataComponentTypes.EQUIPPABLE);
+                public boolean mayPlace(ItemStack s) {
+                    Equippable equippable = s.get(DataComponents.EQUIPPABLE);
                     return equippable != null && equippable.slot() == type;
                 }
-                @Override public int getMaxItemCount() { return 1; }
-            }).id;
+                @Override public int getMaxStackSize() { return 1; }}).index;
         }
     }
 
-    private void addOffhandSlot(PlayerInventory playerInventory) {
-        offhandSlotId = this.addSlot(new Slot(playerInventory, 40, 196, 198)).id;
+    private void addOffhandSlot(Inventory playerInventory) {
+        offhandSlotId = this.addSlot(new Slot(playerInventory, 40, 196, 198)).index;
     }
 
     // --------------------------
@@ -237,8 +242,8 @@ public class NewEnchantingScreenHandler extends ScreenHandler {
         world.playSound(
                 null,
                 pos,
-                SoundEvents.BLOCK_ENCHANTMENT_TABLE_USE,
-                SoundCategory.BLOCKS,
+                SoundEvents.ENCHANTMENT_TABLE_USE,
+                SoundSource.BLOCKS,
                 1.0f,
                 1.0f
         );
@@ -248,8 +253,8 @@ public class NewEnchantingScreenHandler extends ScreenHandler {
         world.playSound(
                 null,
                 pos,
-                SoundEvents.BLOCK_ENCHANTMENT_TABLE_USE,
-                SoundCategory.BLOCKS,
+                SoundEvents.ENCHANTMENT_TABLE_USE,
+                SoundSource.BLOCKS,
                 1.0f,
                 0.5f
         );

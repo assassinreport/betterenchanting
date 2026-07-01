@@ -6,42 +6,44 @@ import net.assassinreport.betterenchanting.network.ClientToServerPackets;
 import net.assassinreport.betterenchanting.screen.animations.Book;
 import net.assassinreport.betterenchanting.screen.buttons.RandomEnchantButton;
 import net.assassinreport.betterenchanting.screen.buttons.SelectableEnchantButtons;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gl.RenderPipelines;
-import net.minecraft.client.gui.screen.ingame.HandledScreen;
-import net.minecraft.client.render.entity.model.BookModel;
-import net.minecraft.client.render.entity.model.EntityModelLayers;
-import net.minecraft.enchantment.Enchantment;
-import net.minecraft.enchantment.Enchantments;
-import net.minecraft.entity.player.PlayerInventory;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.registry.RegistryKey;
-import net.minecraft.registry.RegistryKeys;
-import net.minecraft.registry.entry.RegistryEntry;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.client.model.geom.ModelLayers;
+import net.minecraft.client.model.object.book.BookModel;
+import net.minecraft.client.renderer.RenderPipelines;
+import net.minecraft.core.Holder;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.enchantment.Enchantment;
+import net.minecraft.world.item.enchantment.Enchantments;
+import org.jspecify.annotations.NullMarked;
 
 import java.util.*;
 
-public class NewEnchantingScreen extends HandledScreen<NewEnchantingScreenHandler> {
+public class NewEnchantingScreen extends AbstractContainerScreen<NewEnchantingScreenHandler> {
 
     private Book bookRenderer;
     private RandomEnchantButton randomEnchantButton;
     private boolean showButton = false;
 
-    public static final Identifier TEXTURE = Identifier.of(BetterEnchanting.MOD_ID, "textures/gui/enchanting_menu_1_21.png");
-    private static final Identifier EMPTY_HELMET = Identifier.ofVanilla("container/slot/helmet");
-    private static final Identifier EMPTY_CHEST  = Identifier.ofVanilla("container/slot/chestplate");
-    private static final Identifier EMPTY_LEGS   = Identifier.ofVanilla("container/slot/leggings");
-    private static final Identifier EMPTY_BOOTS  = Identifier.ofVanilla("container/slot/boots");
-    private static final Identifier EMPTY_SHIELD = Identifier.ofVanilla("container/slot/shield");
+    public static final Identifier TEXTURE = Identifier.fromNamespaceAndPath((BetterEnchanting.MOD_ID), "textures/gui/enchanting_menu_1_21.png");
+    private static final Identifier EMPTY_HELMET = Identifier.fromNamespaceAndPath("minecraft", "container/slot/helmet");
+    private static final Identifier EMPTY_CHEST = Identifier.fromNamespaceAndPath("minecraft", "container/slot/chestplate");
+    private static final Identifier EMPTY_LEGS = Identifier.fromNamespaceAndPath("minecraft", "container/slot/leggings");
+    private static final Identifier EMPTY_BOOTS = Identifier.fromNamespaceAndPath("minecraft", "container/slot/boots");
+    private static final Identifier EMPTY_SHIELD = Identifier.fromNamespaceAndPath("minecraft", "container/slot/shield");
 
     private final List<SelectableEnchantButtons> enchantmentButtons = new ArrayList<>();
-    private List<RegistryEntry<Enchantment>> orderedEnchantments = new ArrayList<>();
-    private Map<RegistryEntry<Enchantment>, Integer> weights = new HashMap<>();
+    private List<Holder<Enchantment>> orderedEnchantments = new ArrayList<>();
+    private Map<Holder<Enchantment>, Integer> weights = new HashMap<>();
 
-    private static final RegistryKey<Enchantment>[] ORDERED_ENCHANTMENTS = new RegistryKey[] {
+    @SuppressWarnings("unchecked")
+    private static final ResourceKey<Enchantment>[] ORDERED_ENCHANTMENTS = new ResourceKey[] {
             Enchantments.AQUA_AFFINITY,
             Enchantments.BANE_OF_ARTHROPODS,
             Enchantments.BLAST_PROTECTION,
@@ -86,33 +88,30 @@ public class NewEnchantingScreen extends HandledScreen<NewEnchantingScreenHandle
             Enchantments.WIND_BURST
     };
 
-    public NewEnchantingScreen(NewEnchantingScreenHandler handler, PlayerInventory inventory, Text title) {
-        super(handler, inventory, title);
+    public NewEnchantingScreen(NewEnchantingScreenHandler menu, Inventory inventory, Component title) {
+        super(menu, inventory, title, 220, 222);
     }
 
     @Override
     protected void init() {
         super.init();
 
-        this.backgroundWidth = 220;
-        this.backgroundHeight = 222;
-        this.x = (this.width - this.backgroundWidth) / 2;
-        this.y = (this.height - this.backgroundHeight) / 2;
+        this.leftPos = (this.width - this.imageWidth) / 2;
+        this.topPos = (this.height - this.imageHeight) / 2;
 
-        if (this.client != null && this.client.world != null) {
+        if (this.minecraft.level != null) {
             this.bookRenderer = new Book(
-                    new BookModel(this.client.getLoadedEntityModels().getModelPart(EntityModelLayers.BOOK)),
-                    Identifier.of("textures/entity/enchanting_table_book.png")
+                    new BookModel(this.minecraft.getEntityModels().bakeLayer(ModelLayers.BOOK))
             );
 
-            var registry = this.client.world.getRegistryManager().getOrThrow(RegistryKeys.ENCHANTMENT);
+            var registry = this.minecraft.level.registryAccess().lookupOrThrow(Registries.ENCHANTMENT);
             orderedEnchantments = Arrays.stream(ORDERED_ENCHANTMENTS)
-                    .map(key -> (RegistryEntry<Enchantment>) registry.getOptional(key).orElseThrow())
+                    .<Holder<Enchantment>>map(key -> registry.get(key).orElseThrow())
                     .toList();
 
-            Map<RegistryEntry<Enchantment>, Integer> dynamicWeights = new HashMap<>();
+            Map<Holder<Enchantment>, Integer> dynamicWeights = new HashMap<>();
             int currentTextureOffset = 0;
-            for (RegistryEntry<Enchantment> enchant : orderedEnchantments) {
+            for (Holder<Enchantment> enchant : orderedEnchantments) {
                 dynamicWeights.put(enchant, currentTextureOffset);
                 currentTextureOffset += enchant.value().getMaxLevel();
             }
@@ -121,28 +120,27 @@ public class NewEnchantingScreen extends HandledScreen<NewEnchantingScreenHandle
 
         createSelectableEnchantButtons();
 
-        titleY = 1000;
-        playerInventoryTitleY = 1000;
+        titleLabelY = 1000;
+        inventoryLabelY = 1000;
     }
 
-    private void drawEmptySlot(DrawContext context, int slotId, Identifier texture, int offsetX, int offsetY) {
-        if (!handler.slots.get(slotId).hasStack()) {
-            context.drawGuiTexture(
+    private void drawEmptySlot(GuiGraphicsExtractor context, int slotId, Identifier texture, int offsetX, int offsetY) {
+        if (!menu.slots.get(slotId).hasItem()) {
+            context.blitSprite(
                     RenderPipelines.GUI_TEXTURED,
                     texture,
-                    this.x + offsetX,
-                    this.y + offsetY,
+                    this.leftPos + offsetX,
+                    this.topPos + offsetY,
                     16, 16
             );
         }
     }
 
-    @Override
-    protected void drawBackground(DrawContext context, float delta, int mouseX, int mouseY) {
-        int x = (width - backgroundWidth) / 2;
-        int y = (height - backgroundHeight) / 2;
+    private void drawScreenBackground(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta) {
+        int x = (width - imageWidth) / 2;
+        int y = (height - imageHeight) / 2;
 
-        context.drawTexture(
+        context.blit(
                 RenderPipelines.GUI_TEXTURED,
                 TEXTURE,
                 x, y,
@@ -153,29 +151,25 @@ public class NewEnchantingScreen extends HandledScreen<NewEnchantingScreenHandle
 
         bookRenderer.render(context, x, y, delta);
 
-        if (!this.handler.slots.get(handler.armorSlotIds[0]).hasStack()) {
-            drawEmptySlot(context, handler.armorSlotIds[0], EMPTY_HELMET, 8, 140);
+        if (!this.menu.slots.get(menu.armorSlotIds[0]).hasItem()) {
+            drawEmptySlot(context, menu.armorSlotIds[0], EMPTY_HELMET, 8, 140);
         }
-
-        if (!this.handler.slots.get(handler.armorSlotIds[1]).hasStack()) {
-            drawEmptySlot(context, handler.armorSlotIds[1], EMPTY_CHEST, 8, 158);
+        if (!this.menu.slots.get(menu.armorSlotIds[1]).hasItem()) {
+            drawEmptySlot(context, menu.armorSlotIds[1], EMPTY_CHEST, 8, 158);
         }
-
-        if (!this.handler.slots.get(handler.armorSlotIds[2]).hasStack()) {
-            drawEmptySlot(context, handler.armorSlotIds[2], EMPTY_LEGS, 8, 176);
+        if (!this.menu.slots.get(menu.armorSlotIds[2]).hasItem()) {
+            drawEmptySlot(context, menu.armorSlotIds[2], EMPTY_LEGS, 8, 176);
         }
-
-        if (!this.handler.slots.get(handler.armorSlotIds[3]).hasStack()) {
-            drawEmptySlot(context, handler.armorSlotIds[3], EMPTY_BOOTS, 8, 198);
+        if (!this.menu.slots.get(menu.armorSlotIds[3]).hasItem()) {
+            drawEmptySlot(context, menu.armorSlotIds[3], EMPTY_BOOTS, 8, 198);
         }
-
-        if (!this.handler.slots.get(handler.offhandSlotId).hasStack()) {
-            drawEmptySlot(context, handler.offhandSlotId, EMPTY_SHIELD, 196, 198);
+        if (!this.menu.slots.get(menu.offhandSlotId).hasItem()) {
+            drawEmptySlot(context, menu.offhandSlotId, EMPTY_SHIELD, 196, 198);
         }
     }
 
     private void doTick() {
-        ItemStack stackInSlot = handler.getSlot(0).getStack();
+        ItemStack stackInSlot = menu.getSlot(0).getItem();
         bookRenderer.tick(stackInSlot, !stackInSlot.isEmpty());
     }
 
@@ -189,44 +183,45 @@ public class NewEnchantingScreen extends HandledScreen<NewEnchantingScreenHandle
         } else {
             showButton = false;
             if (randomEnchantButton != null) {
-                this.remove(randomEnchantButton);
+                this.removeWidget(randomEnchantButton);
                 randomEnchantButton = null;
             }
         }
     }
 
+    @NullMarked
     @Override
-    public void render(DrawContext context, int mouseX, int mouseY, float delta) {
-        this.renderBackground(context, mouseX, mouseY, delta);
-        super.render(context, mouseX, mouseY, delta);
-        this.drawMouseoverTooltip(context, mouseX, mouseY);
+    public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
+        this.drawScreenBackground(graphics, mouseX, mouseY, delta);
+        super.extractRenderState(graphics, mouseX, mouseY, delta);
+        this.extractTooltip(graphics, mouseX, mouseY);
 
         for (SelectableEnchantButtons btn : enchantmentButtons) {
             if (btn.isHovered()) {
-                RegistryEntry<Enchantment> enchant = btn.getEnchantment();
+                Holder<Enchantment> enchant = btn.getEnchantment();
                 int unlockedLevel = 1;
-                Map<NewEnchantingTableBlockEntity.EnchantmentLevel, Integer> cached = handler.blockEntity.getCachedEnchantments();
+                Map<NewEnchantingTableBlockEntity.EnchantmentLevel, Integer> cached = menu.blockEntity.getCachedEnchantments();
                 for (var entry : cached.entrySet()) {
                     if (entry.getKey().enchantment() == enchant && entry.getValue() >= 6) {
                         unlockedLevel = Math.max(unlockedLevel, entry.getKey().level());
                     }
                 }
 
-                Text formattedName = Enchantment.getName(enchant, unlockedLevel);
-                context.drawTooltip(this.textRenderer, formattedName, mouseX, mouseY);
+                Component formattedName = Enchantment.getFullname(enchant, unlockedLevel);
+                graphics.setTooltipForNextFrame(this.font, formattedName, mouseX, mouseY);
                 break;
             }
         }
     }
 
     @Override
-    public void handledScreenTick() {
-        super.handledScreenTick();
+    public void containerTick() {
+        super.containerTick();
 
-        ItemStack stackInSlot = handler.getSlot(0).getStack();
+        ItemStack stackInSlot = menu.getSlot(0).getItem();
         if (stackInSlot.isEmpty() && !enchantmentButtons.isEmpty()) {
             for (SelectableEnchantButtons btn : enchantmentButtons) {
-                this.remove(btn);
+                this.removeWidget(btn);
             }
             enchantmentButtons.clear();
         } else if (!stackInSlot.isEmpty() && enchantmentButtons.isEmpty()) {
@@ -240,19 +235,19 @@ public class NewEnchantingScreen extends HandledScreen<NewEnchantingScreenHandle
 
     private void randomEnchantButton() {
         if (randomEnchantButton != null) {
-            this.remove(randomEnchantButton);
+            this.removeWidget(randomEnchantButton);
         }
 
-        int btnX = this.x + 6;
-        int btnY = this.y + 105;
+        int btnX = this.leftPos + 6;
+        int btnY = this.topPos + 105;
         int btnWidth = 40;
         int btnHeight = 15;
 
-        ItemStack inputStack = handler.getSlot(0).getStack();
+        ItemStack inputStack = menu.getSlot(0).getItem();
 
         boolean canAffordAny = false;
-        if (!inputStack.isEmpty() && client != null && client.player != null) {
-            canAffordAny = handler.blockEntity.canAffordAny(client.player, inputStack);
+        if (!inputStack.isEmpty() && minecraft.player != null) {
+            canAffordAny = menu.blockEntity.canAffordAny(minecraft.player, inputStack);
         }
 
         randomEnchantButton = new RandomEnchantButton(
@@ -265,27 +260,27 @@ public class NewEnchantingScreen extends HandledScreen<NewEnchantingScreenHandle
 
         randomEnchantButton.setActiveState(canAffordAny);
 
-        addDrawableChild(randomEnchantButton);
+        addRenderableWidget(randomEnchantButton);
     }
 
     private void createSelectableEnchantButtons() {
         for (SelectableEnchantButtons btn : enchantmentButtons) {
-            this.remove(btn);
+            this.removeWidget(btn);
         }
         enchantmentButtons.clear();
 
-        ItemStack inputStack = handler.getSlot(0).getStack();
+        ItemStack inputStack = menu.getSlot(0).getItem();
         if (inputStack.isEmpty()) return;
 
         int iconWidth = 22;
         int iconHeight = 20;
-        int iconStartX = this.x + 50;
-        int iconStartY = this.y + 8;
+        int iconStartX = this.leftPos + 50;
+        int iconStartY = this.topPos + 8;
 
         int layoutIndex = 0;
 
-        for (RegistryEntry<Enchantment> enchantment : orderedEnchantments) {
-            if (!(enchantment.value().isAcceptableItem(inputStack) || inputStack.isOf(Items.BOOK))) continue;
+        for (Holder<Enchantment> enchantment : orderedEnchantments) {
+            if (!(enchantment.value().isSupportedItem(inputStack) || inputStack.is(Items.BOOK))) continue;
 
             int btnX = iconStartX + (layoutIndex % 7) * (iconWidth + 1);
             int btnY = iconStartY + (layoutIndex / 7) * (iconHeight + 1);
@@ -295,11 +290,11 @@ public class NewEnchantingScreen extends HandledScreen<NewEnchantingScreenHandle
                     btnX, btnY,
                     iconWidth, iconHeight,
                     enchantment,
-                    handler.blockEntity,
+                    menu.blockEntity,
                     weights,
                     btn -> {
                         int unlockedLevel = 1;
-                        Map<NewEnchantingTableBlockEntity.EnchantmentLevel, Integer> cached = handler.blockEntity.getCachedEnchantments();
+                        Map<NewEnchantingTableBlockEntity.EnchantmentLevel, Integer> cached = menu.blockEntity.getCachedEnchantments();
 
                         for (var entry : cached.entrySet()) {
                             if (entry.getKey().enchantment() == enchantment && entry.getValue() >= 6) {
@@ -311,7 +306,7 @@ public class NewEnchantingScreen extends HandledScreen<NewEnchantingScreenHandle
                     }
             );
 
-            this.addDrawableChild(button);
+            this.addRenderableWidget(button);
             enchantmentButtons.add(button);
         }
     }

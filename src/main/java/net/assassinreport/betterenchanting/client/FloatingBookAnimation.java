@@ -1,14 +1,14 @@
 package net.assassinreport.betterenchanting.client;
 
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.random.Random;
-import net.minecraft.world.World;
+import net.minecraft.core.BlockPos;
+import net.minecraft.util.Mth;
+import net.minecraft.util.RandomSource;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.Level;
 
 public class FloatingBookAnimation {
 
-    private static final Random RANDOM = Random.create();
+    private static final RandomSource RANDOM = RandomSource.create();
     private static final float PAGE_SPEED = 0.4f;
     private static final float FLIP_LIMIT = 0.2f;
     private static final float ROTATION_SPEED = 0.4f;
@@ -21,17 +21,17 @@ public class FloatingBookAnimation {
     public float bookRotation, lastBookRotation, targetBookRotation;
 
     public static float normalizeAngle(float angle) {
-        angle %= 2 * MathHelper.PI;
-        if (angle >= MathHelper.PI) angle -= 2 * MathHelper.PI;
-        if (angle < -MathHelper.PI) angle += 2 * MathHelper.PI;
+        angle %= 2 * Mth.PI;
+        if (angle >= Mth.PI) angle -= 2 * Mth.PI;
+        if (angle < -Mth.PI) angle += 2 * Mth.PI;
         return angle;
     }
 
-    public void tick(World world, BlockPos pos) {
+    public void tick(Level world, BlockPos pos) {
         lastBookRotation = bookRotation;
         pageTurningSpeed = nextPageTurningSpeed;
 
-        PlayerEntity player = world.getClosestPlayer(
+        Player player = world.getNearestPlayer(
                 pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5,
                 PLAYER_DETECTION_RADIUS, false
         );
@@ -47,12 +47,12 @@ public class FloatingBookAnimation {
         ticks++;
     }
 
-    private void updateTowardsPlayer(BlockPos pos, PlayerEntity player) {
+    private void updateTowardsPlayer(BlockPos pos, Player player) {
         double dx = player.getX() - (pos.getX() + 0.5);
         double dz = player.getZ() - (pos.getZ() + 0.5);
-        targetBookRotation = (float) MathHelper.atan2(dz, dx);
+        targetBookRotation = (float) Mth.atan2(dz, dx);
 
-        nextPageTurningSpeed = MathHelper.clamp(nextPageTurningSpeed + 0.1f, 0, 1);
+        nextPageTurningSpeed = Mth.clamp(nextPageTurningSpeed + 0.1f, 0, 1);
 
         float prevFlip = flipRandom;
         while (prevFlip == flipRandom) {
@@ -62,7 +62,7 @@ public class FloatingBookAnimation {
 
     private void idleAnimation() {
         targetBookRotation += 0.02f;
-        nextPageTurningSpeed = MathHelper.clamp(nextPageTurningSpeed - 0.1f, 0, 1);
+        nextPageTurningSpeed = Mth.clamp(nextPageTurningSpeed - 0.1f, 0, 1);
     }
 
     private void animateBookRotation() {
@@ -73,7 +73,7 @@ public class FloatingBookAnimation {
 
     private void animatePageTurning() {
         pageAngle = nextPageAngle;
-        float delta = MathHelper.clamp((flipRandom - nextPageAngle) * PAGE_SPEED, -FLIP_LIMIT, FLIP_LIMIT);
+        float delta = Mth.clamp((flipRandom - nextPageAngle) * PAGE_SPEED, -FLIP_LIMIT, FLIP_LIMIT);
         flipTurn += (delta - flipTurn) * 0.9f;
         nextPageAngle += flipTurn;
     }

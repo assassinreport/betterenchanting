@@ -3,38 +3,39 @@ package net.assassinreport.betterenchanting.block.entity;
 import com.mojang.logging.LogUtils;
 import net.assassinreport.betterenchanting.block.custom.NewChiseledBookshelfBlock;
 import net.assassinreport.betterenchanting.screen.NewChiseledBookshelfScreenHandler;
-import net.fabricmc.fabric.api.screenhandler.v1.ExtendedScreenHandlerFactory;
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.entity.player.PlayerInventory;
-import net.minecraft.inventory.Inventories;
-import net.minecraft.inventory.Inventory;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.registry.tag.ItemTags;
-import net.minecraft.screen.ScreenHandler;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.sound.SoundCategory;
-import net.minecraft.sound.SoundEvent;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.state.property.BooleanProperty;
-import net.minecraft.storage.ReadView;
-import net.minecraft.storage.WriteView;
-import net.minecraft.text.Text;
-import net.minecraft.util.collection.DefaultedList;
-import net.minecraft.util.math.BlockPos;
+import net.fabricmc.fabric.api.menu.v1.ExtendedMenuProvider;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.NonNullList;
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvent;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.tags.ItemTags;
+import net.minecraft.world.Container;
+import net.minecraft.world.ContainerHelper;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.BooleanProperty;
+import net.minecraft.world.level.storage.ValueInput;
+import net.minecraft.world.level.storage.ValueOutput;
+import org.jspecify.annotations.NullMarked;
 import org.slf4j.Logger;
 
-public class NewChiseledBookshelfBlockEntity extends BlockEntity implements ImplementedInventory, ExtendedScreenHandlerFactory<BlockPos> {
+public class NewChiseledBookshelfBlockEntity extends BlockEntity implements ImplementedInventory, ExtendedMenuProvider<BlockPos> {
 
     private static final Logger LOGGER = LogUtils.getLogger();
     private static final int SLOT_COUNT = 6;
 
-    private final DefaultedList<ItemStack> inventory =
-            DefaultedList.ofSize(SLOT_COUNT, ItemStack.EMPTY);
+    private final NonNullList<ItemStack> inventory =
+            NonNullList.withSize(SLOT_COUNT, ItemStack.EMPTY);
 
     private int lastInteractedSlot = -1;
     private boolean wasSpecialFull = false;
@@ -54,11 +55,11 @@ public class NewChiseledBookshelfBlockEntity extends BlockEntity implements Impl
 
     private boolean hasSixIdenticalEnchantedBooks() {
         ItemStack first = inventory.getFirst();
-        if (first.isEmpty() || !first.isOf(Items.ENCHANTED_BOOK)) return false;
+        if (first.isEmpty() || !first.is(Items.ENCHANTED_BOOK)) return false;
 
         for (int i = 1; i < SLOT_COUNT; i++) {
             ItemStack current = inventory.get(i);
-            if (!ItemStack.areItemsAndComponentsEqual(first, current)) {
+            if (!ItemStack.isSameItemSameComponents(first, current)) {
                 return false;
             }
         }
@@ -75,49 +76,53 @@ public class NewChiseledBookshelfBlockEntity extends BlockEntity implements Impl
 
         lastInteractedSlot = interactedSlot;
 
-        BlockState oldState = getCachedState();
+        BlockState oldState = getBlockState();
         BlockState newState = oldState;
 
         for (int i = 0; i < SLOT_COUNT; i++) {
-            newState = newState.with(MY_SLOTS[i], !inventory.get(i).isEmpty());
+            newState = newState.setValue(MY_SLOTS[i], !inventory.get(i).isEmpty());
         }
 
-        if (newState != oldState && world != null) {
-            world.setBlockState(pos, newState, Block.NOTIFY_ALL);
+        if (newState != oldState && level != null) {
+            level.setBlock(worldPosition, newState, Block.UPDATE_ALL);
         }
     }
 
     // --------------------------Screen-------------------------------
 
+    @NullMarked
     @Override
-    public Text getDisplayName() {
-        return Text.literal("New Chiseled Bookshelf");
+    public Component getDisplayName() {
+        return Component.literal("New Chiseled Bookshelf");
     }
 
+    @NullMarked
     @Override
-    public ScreenHandler createMenu(int syncId, PlayerInventory inv, PlayerEntity player) {
+    public AbstractContainerMenu createMenu(int syncId, Inventory inv, Player player) {
         return new NewChiseledBookshelfScreenHandler(syncId, inv, this);
     }
 
+    @NullMarked
     @Override
-    public BlockPos getScreenOpeningData(ServerPlayerEntity player) {
-        return this.pos;
+    public BlockPos getScreenOpeningData(ServerPlayer player) {
+        return this.worldPosition;
     }
 
     // ----------------------Inventory---------------------------
 
     @Override
-    public void clear() {
+    public void clearContent() {
         inventory.clear();
     }
 
+    @NullMarked
     @Override
-    public DefaultedList<ItemStack> getItems() {
+    public NonNullList<ItemStack> getItems() {
         return inventory;
     }
 
     @Override
-    public int size() {
+    public int getContainerSize() {
         return SLOT_COUNT;
     }
 
@@ -126,13 +131,19 @@ public class NewChiseledBookshelfBlockEntity extends BlockEntity implements Impl
         return inventory.stream().allMatch(ItemStack::isEmpty);
     }
 
+    @NullMarked
     @Override
-    public ItemStack getStack(int slot) {
+    public ItemStack getItem(int slot) {
         return inventory.get(slot);
     }
 
+    public int getLastInteractedSlot() {
+        return lastInteractedSlot;
+    }
+
+    @NullMarked
     @Override
-    public ItemStack removeStack(int slot, int amount) {
+    public ItemStack removeItem(int slot, int amount) {
         ItemStack existing = inventory.get(slot);
         inventory.set(slot, ItemStack.EMPTY);
 
@@ -141,92 +152,92 @@ public class NewChiseledBookshelfBlockEntity extends BlockEntity implements Impl
     }
 
     @Override
-    public ItemStack removeStack(int slot) {
-        return removeStack(slot, getStack(slot).getCount());
-    }
-
-    @Override
-    public void setStack(int slot, ItemStack stack) {
-        if (!stack.isIn(ItemTags.BOOKSHELF_BOOKS)) return;
+    public void setItem(int slot, ItemStack stack) {
+        if (!stack.is(ItemTags.BOOKSHELF_BOOKS)) return;
 
         ItemStack oldStack = inventory.get(slot);
         inventory.set(slot, stack);
         updateState(slot);
-        markDirty();
+        setChanged();
 
-        if (world == null || !(world instanceof ServerWorld) || !oldStack.isEmpty() || stack.isEmpty()) {
+        if (level == null || !(level instanceof ServerLevel) || !oldStack.isEmpty() || stack.isEmpty()) {
             return;
         }
 
         if (!hasSixIdenticalEnchantedBooks()) {
-            SoundEvent soundToPlay = stack.isOf(Items.ENCHANTED_BOOK)
-                    ? SoundEvents.BLOCK_CHISELED_BOOKSHELF_INSERT_ENCHANTED
-                    : SoundEvents.BLOCK_CHISELED_BOOKSHELF_INSERT;
-            world.playSound(null, pos, soundToPlay, SoundCategory.BLOCKS, 1.0f, 1.0f);
+            SoundEvent soundToPlay = stack.is(Items.ENCHANTED_BOOK)
+                    ? SoundEvents.CHISELED_BOOKSHELF_INSERT_ENCHANTED
+                    : SoundEvents.CHISELED_BOOKSHELF_INSERT;
+            level.playSound(null, worldPosition, soundToPlay, SoundSource.BLOCKS, 1.0f, 1.0f);
         }
     }
 
+    @NullMarked
     @Override
-    public boolean canTransferTo(Inventory hopperInventory, int slot, ItemStack stack) {
-        return hopperInventory.containsAny(target ->
+    public boolean canTakeItem(Container hopperContainer, int slot, ItemStack stack) {
+        return hopperContainer.hasAnyMatching(target ->
                 target.isEmpty() ||
-                        (ItemStack.areItemsAndComponentsEqual(stack, target)
+                        (ItemStack.isSameItemSameComponents(stack, target)
                                 && target.getCount() + stack.getCount()
-                                <= Math.min(target.getMaxCount(), hopperInventory.getMaxCountPerStack()))
+                                <= Math.min(target.getMaxStackSize(), hopperContainer.getMaxStackSize()))
         );
     }
 
     @Override
-    public int getMaxCountPerStack() {
+    public int getMaxStackSize() {
         return 1;
     }
 
+    @NullMarked
     @Override
-    public boolean canPlayerUse(PlayerEntity player) {
-        return Inventory.canPlayerUse(this, player);
+    public boolean stillValid(Player player) {
+        return Container.stillValidBlockEntity(this, player);
     }
 
     @Override
-    public boolean isValid(int slot, ItemStack stack) {
-        return stack.isIn(ItemTags.BOOKSHELF_BOOKS) && getStack(slot).isEmpty();
+    public boolean canPlaceItem(int slot, ItemStack stack) {
+        return stack.is(ItemTags.BOOKSHELF_BOOKS) && getItem(slot).isEmpty();
     }
 
     @Override
-    public void markDirty() {
-        super.markDirty();
+    public void setChanged() {
+        super.setChanged();
 
-        if (world == null || world instanceof ServerWorld) return;
+        if (level == null || !(level instanceof ServerLevel)) return;
 
         boolean isSpecialFullNow = hasSixIdenticalEnchantedBooks();
 
         if (isSpecialFullNow && !wasSpecialFull) {
-            world.playSound(null, pos, SoundEvents.BLOCK_BEACON_POWER_SELECT, SoundCategory.BLOCKS, 1.0f, 1.0f);
+            level.playSound(null, worldPosition, SoundEvents.BEACON_POWER_SELECT, SoundSource.BLOCKS, 1.0f, 1.0f);
         } else if (!isSpecialFullNow && wasSpecialFull) {
-            world.playSound(null, pos, SoundEvents.BLOCK_BEACON_DEACTIVATE, SoundCategory.BLOCKS, 1.0f, 1.0f);
+            level.playSound(null, worldPosition, SoundEvents.BEACON_DEACTIVATE, SoundSource.BLOCKS, 1.0f, 1.0f);
         }
 
         wasSpecialFull = isSpecialFullNow;
 
-        BlockPos.streamOutwards(pos, 3, 3, 3)
-                .map(world::getBlockEntity)
-                .filter(be -> be instanceof NewEnchantingTableBlockEntity)
-                .forEach(be -> ((NewEnchantingTableBlockEntity) be).sync());
+        for (BlockPos p : BlockPos.withinManhattan(worldPosition, 3, 3, 3)) {
+            BlockEntity be = level.getBlockEntity(p);
+            if (be instanceof NewEnchantingTableBlockEntity enchantingTable) {
+                enchantingTable.sync();
+            }
+        }
     }
 
     // --------------------NBT----------------------
-
+    @NullMarked
     @Override
-    public void writeData(WriteView view) {
-        super.writeData(view);
-        Inventories.writeData(view, inventory);
-        view.putInt("last_interacted_slot", lastInteractedSlot);
+    protected void saveAdditional(ValueOutput output) {
+        super.saveAdditional(output);
+        ContainerHelper.saveAllItems(output, inventory);
+        output.putInt("last_interacted_slot", lastInteractedSlot);
         this.wasSpecialFull = hasSixIdenticalEnchantedBooks();
     }
 
+    @NullMarked
     @Override
-    public void readData(ReadView view) {
-        super.readData(view);
-        Inventories.readData(view, inventory);
-        lastInteractedSlot = view.getInt("last_interacted_slot", 0);
+    protected void loadAdditional(ValueInput input) {
+        super.loadAdditional(input);
+        ContainerHelper.loadAllItems(input, inventory);
+        lastInteractedSlot = input.getIntOr("last_interacted_slot", 0);
     }
 }

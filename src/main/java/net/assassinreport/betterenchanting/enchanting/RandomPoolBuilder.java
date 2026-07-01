@@ -1,12 +1,12 @@
 package net.assassinreport.betterenchanting.enchanting;
 
 import net.assassinreport.betterenchanting.block.entity.NewEnchantingTableBlockEntity;
-import net.minecraft.component.type.ItemEnchantmentsComponent;
-import net.minecraft.enchantment.Enchantment;
-import net.minecraft.enchantment.EnchantmentHelper;
-import net.minecraft.item.ItemStack;
-import net.minecraft.registry.entry.RegistryEntry;
-import net.minecraft.util.math.random.Random;
+import net.minecraft.core.Holder;
+import net.minecraft.util.RandomSource;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.enchantment.Enchantment;
+import net.minecraft.world.item.enchantment.EnchantmentHelper;
+import net.minecraft.world.item.enchantment.ItemEnchantments;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -30,18 +30,18 @@ public class RandomPoolBuilder {
     }
 
     public static List<WeightedEntry> buildWeightedPool(
-            List<RegistryEntry<Enchantment>> candidates,
+            List<Holder<Enchantment>> candidates,
             Map<NewEnchantingTableBlockEntity.EnchantmentLevel, Integer> bonusCounts,
             ItemStack stack) {
 
         List<WeightedEntry> pool = new ArrayList<>();
-        ItemEnchantmentsComponent currentEnchantments = EnchantmentHelper.getEnchantments(stack);
+        ItemEnchantments currentEnchantments = EnchantmentHelper.getEnchantmentsForCrafting(stack);
 
-        Map<RegistryEntry<Enchantment>, Integer> blocked = new HashMap<>();
-        Map<RegistryEntry<Enchantment>, Integer> unlockedNextLevel = new HashMap<>();
+        Map<Holder<Enchantment>, Integer> blocked = new HashMap<>();
+        Map<Holder<Enchantment>, Integer> unlockedNextLevel = new HashMap<>();
 
         for (var entry : bonusCounts.entrySet()) {
-            RegistryEntry<Enchantment> ench = entry.getKey().enchantment();
+            Holder<Enchantment> ench = entry.getKey().enchantment();
             int level = entry.getKey().level();
             int count = entry.getValue();
 
@@ -53,7 +53,7 @@ public class RandomPoolBuilder {
             }
         }
 
-        for (RegistryEntry<Enchantment> ench : candidates) {
+        for (Holder<Enchantment> ench : candidates) {
             if (currentEnchantments.getLevel(ench) > 0) continue;
 
             Integer nextLevel = unlockedNextLevel.get(ench);
@@ -86,7 +86,7 @@ public class RandomPoolBuilder {
     }
 
     public static NewEnchantingTableBlockEntity.SelectedEnchantment pickWeightedRandom(
-            List<WeightedEntry> pool, Random random) {
+            List<WeightedEntry> pool, RandomSource random) {
 
         int totalWeight = pool.stream().mapToInt(e -> e.weight).sum();
         int r = random.nextInt(totalWeight);

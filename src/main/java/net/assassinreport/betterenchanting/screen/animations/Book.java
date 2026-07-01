@@ -1,17 +1,16 @@
 package net.assassinreport.betterenchanting.screen.animations;
 
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.render.entity.model.BookModel;
-import net.minecraft.item.ItemStack;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.random.Random;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.model.object.book.BookModel;
+import net.minecraft.resources.Identifier;
+import net.minecraft.util.Mth;
+import net.minecraft.util.RandomSource;
+import net.minecraft.world.item.ItemStack;
 
 public class Book {
 
     private final BookModel BOOK_MODEL;
-    private final Identifier texture;
-    private final Random random = Random.create();
+    private final RandomSource random = RandomSource.create();
 
     private int ticks;
     private float nextPageAngle;
@@ -24,15 +23,15 @@ public class Book {
 
     private ItemStack currentStack = ItemStack.EMPTY;
 
-    private static final Identifier BOOK_TEXTURE = Identifier.of("textures/entity/enchanting_table_book.png");
+    private static final Identifier BOOK_TEXTURE =
+            Identifier.fromNamespaceAndPath("minecraft", "textures/entity/enchantment/enchanting_table_book.png");
 
-    public Book(BookModel model, Identifier texture) {
+    public Book(BookModel model) {
         this.BOOK_MODEL = model;
-        this.texture = texture;
     }
 
     public void tick(ItemStack newStack, boolean shouldAnimate) {
-        if (!ItemStack.areEqual(newStack, currentStack)) {
+        if (!ItemStack.matches(newStack, currentStack)) {
             currentStack = newStack;
 
             do {
@@ -43,13 +42,11 @@ public class Book {
 
         ticks++;
 
-        // Opening/closing
         float target = shouldAnimate ? 1.0F : 0.0F;
         nextPageTurningSpeed += (target - nextPageTurningSpeed) * 0.2F;
-        nextPageTurningSpeed = MathHelper.clamp(nextPageTurningSpeed, 0.0F, 1.0F);
+        nextPageTurningSpeed = Mth.clamp(nextPageTurningSpeed, 0.0F, 1.0F);
         pageTurningSpeed = nextPageTurningSpeed;
 
-        // Random flutter
         if (shouldAnimate) {
             if (flutterCooldown > 0) {
                 flutterCooldown--;
@@ -59,24 +56,18 @@ public class Book {
             }
         }
 
-        // Page flipping
         float f = (approximatePageAngle - nextPageAngle) * 0.4F;
-        f = MathHelper.clamp(f, -0.2F, 0.2F);
+        f = Mth.clamp(f, -0.2F, 0.2F);
         pageRotationSpeed += (f - pageRotationSpeed) * 0.9F;
         nextPageAngle += pageRotationSpeed;
 
-        // Smooth current page angle
         pageAngle += (nextPageAngle - pageAngle) * 0.4F;
     }
 
-    public void render(DrawContext context, int x, int y, float delta) {
-        float f = MathHelper.lerp(delta, this.pageTurningSpeed, this.nextPageTurningSpeed);
-        float g = MathHelper.lerp(delta, this.pageAngle, this.nextPageAngle);
+    public void render(GuiGraphicsExtractor guiGraphics, int x, int y, float delta) {
+        float open = Mth.lerp(delta, this.pageTurningSpeed, this.nextPageTurningSpeed);
+        float flip = Mth.lerp(delta, this.pageAngle, this.nextPageAngle);
 
-        float j = MathHelper.clamp(MathHelper.fractionalPart(g + 0.25F) * 1.6F - 0.3F, 0.0F, 1.0F);
-        float k = MathHelper.clamp(MathHelper.fractionalPart(g + 0.75F) * 1.6F - 0.3F, 0.0F, 1.0F);
-        this.BOOK_MODEL.setAngles(new BookModel.BookModelState(0.0F, j, k, f));
-
-        context.addBookModel(BOOK_MODEL, BOOK_TEXTURE, 40.0F, f, g, x - 26, y + 35, x + 78, y + 115);
+        guiGraphics.book(BOOK_MODEL, BOOK_TEXTURE, 40.0F, open, flip, x - 26, y + 35, x + 78, y + 115);
     }
 }
