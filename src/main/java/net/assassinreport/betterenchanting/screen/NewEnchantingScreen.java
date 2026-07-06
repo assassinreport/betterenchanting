@@ -31,7 +31,7 @@ public class NewEnchantingScreen extends AbstractContainerScreen<NewEnchantingSc
     private RandomEnchantButton randomEnchantButton;
     private boolean showButton = false;
 
-    public static final Identifier TEXTURE = Identifier.fromNamespaceAndPath((BetterEnchanting.MOD_ID), "textures/gui/enchanting_menu_1_21.png");
+    public static final Identifier TEXTURE = Identifier.fromNamespaceAndPath((BetterEnchanting.MOD_ID), "textures/gui/enchanting_menu_1_21_11.png");
     private static final Identifier EMPTY_HELMET = Identifier.fromNamespaceAndPath("minecraft", "container/slot/helmet");
     private static final Identifier EMPTY_CHEST = Identifier.fromNamespaceAndPath("minecraft", "container/slot/chestplate");
     private static final Identifier EMPTY_LEGS = Identifier.fromNamespaceAndPath("minecraft", "container/slot/leggings");
@@ -85,11 +85,12 @@ public class NewEnchantingScreen extends AbstractContainerScreen<NewEnchantingSc
             Enchantments.THORNS,
             Enchantments.SHARPNESS,
             Enchantments.UNBREAKING,
-            Enchantments.WIND_BURST
+            Enchantments.WIND_BURST,
+            Enchantments.LUNGE
     };
 
     public NewEnchantingScreen(NewEnchantingScreenHandler menu, Inventory inventory, Component title) {
-        super(menu, inventory, title, 220, 222);
+        super(menu, inventory, title, 221, 240);
     }
 
     @Override
@@ -145,26 +146,26 @@ public class NewEnchantingScreen extends AbstractContainerScreen<NewEnchantingSc
                 TEXTURE,
                 x, y,
                 0f, 0f,
-                220, 222,
-                2750, 282
+                221, 240,
+                2816, 300
         );
 
         bookRenderer.render(context, x, y, delta);
 
         if (!this.menu.slots.get(menu.armorSlotIds[0]).hasItem()) {
-            drawEmptySlot(context, menu.armorSlotIds[0], EMPTY_HELMET, 8, 140);
+            drawEmptySlot(context, menu.armorSlotIds[0], EMPTY_HELMET, 8, 158);
         }
         if (!this.menu.slots.get(menu.armorSlotIds[1]).hasItem()) {
-            drawEmptySlot(context, menu.armorSlotIds[1], EMPTY_CHEST, 8, 158);
+            drawEmptySlot(context, menu.armorSlotIds[1], EMPTY_CHEST, 8, 176);
         }
         if (!this.menu.slots.get(menu.armorSlotIds[2]).hasItem()) {
-            drawEmptySlot(context, menu.armorSlotIds[2], EMPTY_LEGS, 8, 176);
+            drawEmptySlot(context, menu.armorSlotIds[2], EMPTY_LEGS, 8, 194);
         }
         if (!this.menu.slots.get(menu.armorSlotIds[3]).hasItem()) {
-            drawEmptySlot(context, menu.armorSlotIds[3], EMPTY_BOOTS, 8, 198);
+            drawEmptySlot(context, menu.armorSlotIds[3], EMPTY_BOOTS, 8, 216);
         }
         if (!this.menu.slots.get(menu.offhandSlotId).hasItem()) {
-            drawEmptySlot(context, menu.offhandSlotId, EMPTY_SHIELD, 196, 198);
+            drawEmptySlot(context, menu.offhandSlotId, EMPTY_SHIELD, 196, 216);
         }
     }
 
@@ -239,7 +240,7 @@ public class NewEnchantingScreen extends AbstractContainerScreen<NewEnchantingSc
         }
 
         int btnX = this.leftPos + 6;
-        int btnY = this.topPos + 105;
+        int btnY = this.topPos + 123;
         int btnWidth = 40;
         int btnHeight = 15;
 
