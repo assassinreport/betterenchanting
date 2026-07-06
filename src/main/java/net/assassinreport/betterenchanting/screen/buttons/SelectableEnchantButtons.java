@@ -66,9 +66,9 @@ public class SelectableEnchantButtons extends ClickableWidget {
                 NewEnchantingScreen.TEXTURE,
                 getX(), getY(),
                 (float) (textureIndex * 22),
-                (float) (222 + row * 20),
+                (float) (240 + row * 20),
                 22, 20,
-                2750, 282
+                2816, 300
         );
     }
 

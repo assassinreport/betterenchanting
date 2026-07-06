@@ -77,6 +77,6 @@ public class Book {
         float k = MathHelper.clamp(MathHelper.fractionalPart(g + 0.75F) * 1.6F - 0.3F, 0.0F, 1.0F);
         this.BOOK_MODEL.setAngles(new BookModel.BookModelState(0.0F, j, k, f));
 
-        context.addBookModel(BOOK_MODEL, BOOK_TEXTURE, 40.0F, f, g, x - 26, y + 35, x + 78, y + 115);
+        context.addBookModel(BOOK_MODEL, BOOK_TEXTURE, 40.0F, f, g, x - 26, y + 53, x + 78, y + 133);
     }
 }

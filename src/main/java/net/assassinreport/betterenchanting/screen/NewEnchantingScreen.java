@@ -30,7 +30,7 @@ public class NewEnchantingScreen extends HandledScreen<NewEnchantingScreenHandle
     private RandomEnchantButton randomEnchantButton;
     private boolean showButton = false;
 
-    public static final Identifier TEXTURE = Identifier.of(BetterEnchanting.MOD_ID, "textures/gui/enchanting_menu_1_21.png");
+    public static final Identifier TEXTURE = Identifier.of(BetterEnchanting.MOD_ID, "textures/gui/enchanting_menu_1_21_11.png");
     private static final Identifier EMPTY_HELMET = Identifier.ofVanilla("container/slot/helmet");
     private static final Identifier EMPTY_CHEST  = Identifier.ofVanilla("container/slot/chestplate");
     private static final Identifier EMPTY_LEGS   = Identifier.ofVanilla("container/slot/leggings");
@@ -83,7 +83,8 @@ public class NewEnchantingScreen extends HandledScreen<NewEnchantingScreenHandle
             Enchantments.THORNS,
             Enchantments.SHARPNESS,
             Enchantments.UNBREAKING,
-            Enchantments.WIND_BURST
+            Enchantments.WIND_BURST,
+            Enchantments.LUNGE
     };
 
     public NewEnchantingScreen(NewEnchantingScreenHandler handler, PlayerInventory inventory, Text title) {
@@ -94,8 +95,8 @@ public class NewEnchantingScreen extends HandledScreen<NewEnchantingScreenHandle
     protected void init() {
         super.init();
 
-        this.backgroundWidth = 220;
-        this.backgroundHeight = 222;
+        this.backgroundWidth = 221;
+        this.backgroundHeight = 240;
         this.x = (this.width - this.backgroundWidth) / 2;
         this.y = (this.height - this.backgroundHeight) / 2;
 
@@ -147,30 +148,30 @@ public class NewEnchantingScreen extends HandledScreen<NewEnchantingScreenHandle
                 TEXTURE,
                 x, y,
                 0f, 0f,
-                220, 222,
-                2750, 282
+                221, 240,
+                2816, 300
         );
 
         bookRenderer.render(context, x, y, delta);
 
         if (!this.handler.slots.get(handler.armorSlotIds[0]).hasStack()) {
-            drawEmptySlot(context, handler.armorSlotIds[0], EMPTY_HELMET, 8, 140);
+            drawEmptySlot(context, handler.armorSlotIds[0], EMPTY_HELMET, 8, 158);
         }
 
         if (!this.handler.slots.get(handler.armorSlotIds[1]).hasStack()) {
-            drawEmptySlot(context, handler.armorSlotIds[1], EMPTY_CHEST, 8, 158);
+            drawEmptySlot(context, handler.armorSlotIds[1], EMPTY_CHEST, 8, 176);
         }
 
         if (!this.handler.slots.get(handler.armorSlotIds[2]).hasStack()) {
-            drawEmptySlot(context, handler.armorSlotIds[2], EMPTY_LEGS, 8, 176);
+            drawEmptySlot(context, handler.armorSlotIds[2], EMPTY_LEGS, 8, 194);
         }
 
         if (!this.handler.slots.get(handler.armorSlotIds[3]).hasStack()) {
-            drawEmptySlot(context, handler.armorSlotIds[3], EMPTY_BOOTS, 8, 198);
+            drawEmptySlot(context, handler.armorSlotIds[3], EMPTY_BOOTS, 8, 216);
         }
 
         if (!this.handler.slots.get(handler.offhandSlotId).hasStack()) {
-            drawEmptySlot(context, handler.offhandSlotId, EMPTY_SHIELD, 196, 198);
+            drawEmptySlot(context, handler.offhandSlotId, EMPTY_SHIELD, 196, 216);
         }
     }
 
@@ -244,7 +245,7 @@ public class NewEnchantingScreen extends HandledScreen<NewEnchantingScreenHandle
         }
 
         int btnX = this.x + 6;
-        int btnY = this.y + 105;
+        int btnY = this.y + 123;
         int btnWidth = 40;
         int btnHeight = 15;
 

@@ -195,7 +195,7 @@ public class NewChiseledBookshelfBlockEntity extends BlockEntity implements Impl
     public void markDirty() {
         super.markDirty();
 
-        if (world == null || world instanceof ServerWorld) return;
+        if (world == null || !(world instanceof ServerWorld)) return;
 
         boolean isSpecialFullNow = hasSixIdenticalEnchantedBooks();
 
