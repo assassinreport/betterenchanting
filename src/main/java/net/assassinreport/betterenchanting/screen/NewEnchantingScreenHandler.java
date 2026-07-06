@@ -66,7 +66,7 @@ public class NewEnchantingScreenHandler extends AbstractContainerMenu {
         this.pos = be.getBlockPos();
         inventory.startOpen(playerInventory.player);
 
-        this.addSlot(new Slot(inventory, 0, 18, 78) {
+        this.addSlot(new Slot(inventory, 0, 18, 96) {
             @NullMarked
             @Override
             public boolean mayPlace(ItemStack stack) {
@@ -200,20 +200,20 @@ public class NewEnchantingScreenHandler extends AbstractContainerMenu {
     private void addPlayerInventory(Inventory playerInventory) {
         for (int i = 0; i < 3; ++i) {
             for (int l = 0; l < 9; ++l) {
-                this.addSlot(new Slot(playerInventory, l + i * 9 + 9, 30 + l * 18, 140 + i * 18));
+                this.addSlot(new Slot(playerInventory, l + i * 9 + 9, 30 + l * 18, 158 + i * 18));
             }
         }
     }
 
     private void addPlayerHotbar(Inventory playerInventory) {
         for (int i = 0; i < 9; ++i) {
-            this.addSlot(new Slot(playerInventory, i, 30 + i * 18, 198));
+            this.addSlot(new Slot(playerInventory, i, 30 + i * 18, 216));
         }
     }
 
     private void addArmorSlots(Inventory inv) {
         EquipmentSlot[] types = {EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET};
-        int[][] pos = {{8,140},{8,158},{8,176},{8,198}};
+        int[][] pos = {{8,158},{8,176},{8,194},{8,216}};
 
         for (int i = 0; i < 4; i++) {
             EquipmentSlot type = types[i];
@@ -226,12 +226,49 @@ public class NewEnchantingScreenHandler extends AbstractContainerMenu {
                     Equippable equippable = s.get(DataComponents.EQUIPPABLE);
                     return equippable != null && equippable.slot() == type;
                 }
-                @Override public int getMaxStackSize() { return 1; }}).index;
+
+                @Override public int getMaxStackSize() { return 1; }
+
+                @Override
+                public void set(ItemStack stack) {
+                    super.set(stack);
+                    if (!stack.isEmpty()) {
+                        Equippable equippable = stack.get(DataComponents.EQUIPPABLE);
+                        if (equippable != null) {
+                            world.playSound(
+                                    null,
+                                    NewEnchantingScreenHandler.this.pos,
+                                    equippable.equipSound().value(),
+                                    SoundSource.PLAYERS,
+                                    1.0f,
+                                    1.0f
+                            );
+                        }
+                    }
+                }}).index;
         }
     }
 
     private void addOffhandSlot(Inventory playerInventory) {
-        offhandSlotId = this.addSlot(new Slot(playerInventory, 40, 196, 198)).index;
+        offhandSlotId = this.addSlot(new Slot(playerInventory, 40, 196, 216) {
+            @Override
+            public void set(ItemStack stack) {
+                super.set(stack);
+                if (!stack.isEmpty()) {
+                    Equippable equippable = stack.get(DataComponents.EQUIPPABLE);
+                    if (equippable != null) {
+                        world.playSound(
+                                null,
+                                NewEnchantingScreenHandler.this.pos,
+                                equippable.equipSound().value(),
+                                SoundSource.PLAYERS,
+                                1.0f,
+                                1.0f
+                        );
+                    }
+                }
+            }
+        }).index;
     }
 
     // --------------------------

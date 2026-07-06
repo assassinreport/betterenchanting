@@ -160,9 +160,7 @@ public class NewChiseledBookshelfBlockEntity extends BlockEntity implements Impl
         updateState(slot);
         setChanged();
 
-        if (level == null || !(level instanceof ServerLevel) || !oldStack.isEmpty() || stack.isEmpty()) {
-            return;
-        }
+        if (level == null || !(level instanceof ServerLevel)) return;
 
         if (!hasSixIdenticalEnchantedBooks()) {
             SoundEvent soundToPlay = stack.is(Items.ENCHANTED_BOOK)
