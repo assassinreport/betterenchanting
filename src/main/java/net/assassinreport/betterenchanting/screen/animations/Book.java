@@ -68,6 +68,6 @@ public class Book {
         float open = Mth.lerp(delta, this.pageTurningSpeed, this.nextPageTurningSpeed);
         float flip = Mth.lerp(delta, this.pageAngle, this.nextPageAngle);
 
-        guiGraphics.book(BOOK_MODEL, BOOK_TEXTURE, 40.0F, open, flip, x - 26, y + 35, x + 78, y + 115);
+        guiGraphics.book(BOOK_MODEL, BOOK_TEXTURE, 40.0F, open, flip, x - 26, y + 53, x + 78, y + 133);
     }
 }
