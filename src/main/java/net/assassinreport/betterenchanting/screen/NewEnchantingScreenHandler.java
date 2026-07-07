@@ -216,17 +216,59 @@ public class NewEnchantingScreenHandler extends ScreenHandler {
                     return s.getItem() instanceof ArmorItem ai && ai.getSlotType() == type;
                 }
                 @Override public int getMaxItemCount() { return 1; }
+
+                @Override
+                public void setStack(ItemStack stack) {
+                    ItemStack oldStack = this.getStack();
+                    if (!stack.isEmpty() && (oldStack.isEmpty() || !ItemStack.canCombine(stack, oldStack))) {
+                        if (stack.getItem() instanceof ArmorItem armorItem) {
+                            playArmorSound(armorItem);
+                        }
+                    }
+                    super.setStack(stack);
+                }
             }).id;
         }
     }
 
     private void addOffhandSlot(PlayerInventory playerInventory) {
-        offhandSlotId = this.addSlot(new Slot(playerInventory, 40, 196, 198)).id;
+        offhandSlotId = this.addSlot(new Slot(playerInventory, 40, 196, 198) {
+            @Override
+            public void setStack(ItemStack stack) {
+                ItemStack oldStack = this.getStack();
+                if (!stack.isEmpty() && (oldStack.isEmpty() || !ItemStack.canCombine(stack, oldStack))) {
+                    playOffhandSound();
+                }
+                super.setStack(stack);
+            }
+        }).id;
     }
 
     // --------------------------
     //          Sounds
     // --------------------------
+
+    private void playArmorSound(ArmorItem armorItem) {
+        world.playSound(
+                null,
+                pos,
+                armorItem.getEquipSound(),
+                SoundCategory.PLAYERS,
+                1.0f,
+                1.0f
+        );
+    }
+
+    private void playOffhandSound() {
+        world.playSound(
+                null,
+                pos,
+                SoundEvents.ITEM_ARMOR_EQUIP_GENERIC,
+                SoundCategory.PLAYERS,
+                1.0f,
+                1.0f
+        );
+    }
 
     private void playEnchantSound() {
         world.playSound(
