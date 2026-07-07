@@ -216,17 +216,57 @@ public class NewEnchantingScreenHandler extends ScreenHandler {
                     return s.getItem() instanceof ArmorItem ai && ai.getSlotType() == type;
                 }
                 @Override public int getMaxItemCount() { return 1; }
+
+                @Override
+                public void setStack(ItemStack stack) {
+                    boolean wasEmpty = this.getStack().isEmpty();
+                    super.setStack(stack);
+                    if (wasEmpty && !stack.isEmpty()) {
+                        playEquipSound(stack);
+                    }
+                }
             }).id;
         }
     }
 
     private void addOffhandSlot(PlayerInventory playerInventory) {
-        offhandSlotId = this.addSlot(new Slot(playerInventory, 40, 196, 198)).id;
+        offhandSlotId = this.addSlot(new Slot(playerInventory, 40, 196, 198) {
+            @Override
+            public void setStack(ItemStack stack) {
+                boolean wasEmpty = this.getStack().isEmpty();
+                super.setStack(stack);
+                if (wasEmpty && !stack.isEmpty()) {
+                    playEquipSound(stack);
+                }
+            }
+        }).id;
     }
 
     // --------------------------
     //          Sounds
     // --------------------------
+
+    private void playEquipSound(ItemStack stack) {
+        if (stack.getItem() instanceof ArmorItem armorItem) {
+            world.playSound(
+                    null,
+                    pos,
+                    armorItem.getMaterial().value().equipSound().value(),
+                    SoundCategory.PLAYERS,
+                    1.0f,
+                    1.0f
+            );
+        } else {
+            world.playSound(
+                    null,
+                    pos,
+                    SoundEvents.ITEM_ARMOR_EQUIP_GENERIC.value(),
+                    SoundCategory.PLAYERS,
+                    1.0f,
+                    1.0f
+            );
+        }
+    }
 
     private void playEnchantSound() {
         world.playSound(
